@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Fail-closed default: deny all access unless explicitly allowed below.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // users/{uid}
+    // A user may read their own basic account document.
+    // Writing (including the authoritative "role" field) is NOT allowed
+    // from the client. Role assignment/updates happen ONLY server-side
+    // through the Firebase Admin SDK (custom claims + user document).
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // profiles/{uid}
+    // A user may read their own profile.
+    // ALL writes happen server-side through the API. Clients cannot
+    // directly write profiles — this prevents role/field injection.
+    match /profiles/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // verifications/{uid}
+    // Client read is NOT allowed — verification status is displayed
+    // from the server API response, not from direct Firestore reads.
+    // ALL writes happen server-side through the Admin SDK.
+    match /verifications/{uid} {
+      allow read, write: if false;
+    }
+
+    // vendorProfiles/{uid}
+    // A vendor may read their own profile. ALL writes happen
+    // server-side through the API — clients cannot directly write,
+    // which prevents role/verification/field injection.
+    match /vendorProfiles/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // jobs/{jobId}
+    // Jobs are read/written through the server API. Vendors may
+    // only modify their own jobs; ownership is enforced server-side.
+    // Client direct reads are denied so job access is fully controlled.
+    match /jobs/{jobId} {
+      allow read, write: if false;
+    }
+  }
+}
