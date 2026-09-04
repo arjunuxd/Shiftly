@@ -1,11 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { useProfile } from "../../context/useProfile";
-import { getVerification } from "../../lib/api";
+import { getVerification, discoverJobs, getMyApplications } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
-import type { VerificationRecord } from "../../types";
-import { useState } from "react";
+import type { VerificationRecord, PublicJob, Application } from "../../types";
 
 function CompletenessBar({ value }: { value: number }) {
   return (
@@ -63,10 +62,21 @@ function VerificationBadge({ status }: { status: string }) {
   );
 }
 
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function JobSeekerDashboard() {
   const { currentUser } = useAuth();
   const { profile, profileLoading, fetchProfile } = useProfile();
   const [verification, setVerification] = useState<VerificationRecord | null>(null);
+  const [recentJobs, setRecentJobs] = useState<PublicJob[]>([]);
+  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
+  const [dashLoading, setDashLoading] = useState(true);
 
   useEffect(() => {
     void fetchProfile();
@@ -85,6 +95,29 @@ export default function JobSeekerDashboard() {
       active = false;
     };
   }, [currentUser]);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const result = await discoverJobs({ sortBy: "newest" });
+      setRecentJobs(result.jobs.slice(0, 3));
+    } catch {
+      // non-blocking
+    }
+
+    try {
+      const token = await getCurrentIdToken();
+      const apps = await getMyApplications(token);
+      setRecentApplications(apps.slice(0, 5));
+    } catch {
+      // non-blocking
+    }
+
+    setDashLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void fetchDashboardData();
+  }, [fetchDashboardData]);
 
   if (profileLoading) {
     return (
@@ -176,6 +209,118 @@ export default function JobSeekerDashboard() {
             </div>
           )}
         </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Link
+            to="/jobs"
+            className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-primary-200 transition-all flex items-center gap-4"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary-50">
+              <svg className="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral-900">Browse Jobs</p>
+              <p className="text-sm text-neutral-500">Find available shifts</p>
+            </div>
+          </Link>
+
+          <Link
+            to="/job-seeker/applications"
+            className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-primary-200 transition-all flex items-center gap-4"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-50">
+              <svg className="h-6 w-6 text-accent-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral-900">My Applications</p>
+              <p className="text-sm text-neutral-500">{recentApplications.length} active</p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Recent Applications */}
+        {!dashLoading && recentApplications.length > 0 && (
+          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-neutral-900">Recent Applications</h2>
+              <Link
+                to="/job-seeker/applications"
+                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                View all
+              </Link>
+            </div>
+            <div className="flex flex-col gap-3">
+              {recentApplications.map((app) => (
+                <div key={app.id} className="flex items-center justify-between py-2 border-b border-neutral-100 last:border-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Link
+                      to={`/jobs/${app.jobId}`}
+                      className="font-medium text-neutral-900 hover:text-primary-600 transition-colors truncate"
+                    >
+                      Job #{app.jobId.slice(0, 8)}
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      app.status === "applied"
+                        ? "bg-green-50 text-green-700"
+                        : app.status === "withdrawn"
+                          ? "bg-neutral-50 text-neutral-600"
+                          : app.status === "accepted"
+                            ? "bg-primary-50 text-primary-700"
+                            : "bg-red-50 text-red-700"
+                    }`}>
+                      {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                    </span>
+                    {app.appliedAt && (
+                      <span className="text-xs text-neutral-400">{formatDate(app.appliedAt)}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Latest Jobs */}
+        {!dashLoading && recentJobs.length > 0 && (
+          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-neutral-900">Latest Opportunities</h2>
+              <Link
+                to="/jobs"
+                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                View all
+              </Link>
+            </div>
+            <div className="flex flex-col gap-3">
+              {recentJobs.map((job) => (
+                <Link
+                  key={job.id}
+                  to={`/jobs/${job.id}`}
+                  className="flex items-center justify-between py-2 border-b border-neutral-100 last:border-0 hover:bg-neutral-50 -mx-2 px-2 rounded-lg transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-neutral-900 truncate">{job.title}</p>
+                    <p className="text-sm text-neutral-500">
+                      {job.location.city}, {job.location.state}
+                    </p>
+                  </div>
+                  <span className="text-sm font-medium text-primary-600 shrink-0 ml-4">
+                    ${job.rateAmount.toLocaleString()}/{job.rateType === "hourly" ? "hr" : "day"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

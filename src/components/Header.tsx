@@ -24,6 +24,12 @@ export default function Header() {
           </Link>
 
           <div className="hidden sm:flex items-center gap-6">
+            <Link
+              to="/jobs"
+              className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+            >
+              Jobs
+            </Link>
             {!authenticated ? (
               <>
                 <Link
@@ -47,6 +53,14 @@ export default function Header() {
                     className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
                   >
                     Verify email
+                  </Link>
+                )}
+                {role === "job_seeker" && (
+                  <Link
+                    to="/job-seeker/applications"
+                    className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                  >
+                    Applications
                   </Link>
                 )}
                 {dashboardPath && (
@@ -90,6 +104,13 @@ export default function Header() {
         {mobileMenuOpen && (
           <div className="sm:hidden pb-4 border-t border-neutral-100 mt-2 pt-4">
             <div className="flex flex-col gap-3">
+              <Link
+                to="/jobs"
+                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Jobs
+              </Link>
               {!authenticated ? (
                 <>
                   <Link
@@ -109,6 +130,15 @@ export default function Header() {
                 </>
               ) : (
                 <>
+                  {role === "job_seeker" && (
+                    <Link
+                      to="/job-seeker/applications"
+                      className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Applications
+                    </Link>
+                  )}
                   {dashboardPath && (
                     <Link
                       to={dashboardPath}

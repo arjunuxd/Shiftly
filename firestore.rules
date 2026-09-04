@@ -9,47 +9,53 @@ service cloud.firestore {
     }
 
     // users/{uid}
-    // A user may read their own basic account document.
-    // Writing (including the authoritative "role" field) is NOT allowed
-    // from the client. Role assignment/updates happen ONLY server-side
-    // through the Firebase Admin SDK (custom claims + user document).
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
     }
 
     // profiles/{uid}
-    // A user may read their own profile.
-    // ALL writes happen server-side through the API. Clients cannot
-    // directly write profiles — this prevents role/field injection.
     match /profiles/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
     }
 
     // verifications/{uid}
-    // Client read is NOT allowed — verification status is displayed
-    // from the server API response, not from direct Firestore reads.
-    // ALL writes happen server-side through the Admin SDK.
     match /verifications/{uid} {
       allow read, write: if false;
     }
 
     // vendorProfiles/{uid}
-    // A vendor may read their own profile. ALL writes happen
-    // server-side through the API — clients cannot directly write,
-    // which prevents role/verification/field injection.
     match /vendorProfiles/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
     }
 
     // jobs/{jobId}
-    // Jobs are read/written through the server API. Vendors may
-    // only modify their own jobs; ownership is enforced server-side.
-    // Client direct reads are denied so job access is fully controlled.
+    // Client direct reads are denied; job access is controlled via the server API.
+    // Vendors manage jobs through the server API only.
     match /jobs/{jobId} {
       allow read, write: if false;
+    }
+
+    // applications/{applicationId}
+    // Application ID format: {jobId}_{jobSeekerId}
+    // Job Seekers can read their own applications.
+    // Job Seekers can create their own applications (validated server-side).
+    // Job Seekers can update their own applications (withdraw only, validated server-side).
+    // All writes go through the server API.
+    match /applications/{applicationId} {
+      allow read: if request.auth != null
+        && applicationId.matches(".*_" + request.auth.uid + "$");
+      allow create: if request.auth != null
+        && request.resource.data.jobSeekerId == request.auth.uid
+        && request.resource.data.keys().hasAll(["jobId", "jobSeekerId", "vendorId", "status", "createdAt", "updatedAt"])
+        && request.resource.data.status == "applied";
+      allow update: if request.auth != null
+        && applicationId.matches(".*_" + request.auth.uid + "$")
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+        && request.resource.data.status == "withdrawn";
+      allow delete: if false;
     }
   }
 }

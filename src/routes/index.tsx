@@ -11,6 +11,9 @@ import JobSeekerProfilePage from "../pages/jobSeeker/JobSeekerProfilePage";
 import JobSeekerProfileEditPage from "../pages/jobSeeker/JobSeekerProfileEditPage";
 import JobSeekerProfileCreatePage from "../pages/jobSeeker/JobSeekerProfileCreatePage";
 import JobSeekerVerifyPage from "../pages/jobSeeker/JobSeekerVerifyPage";
+import JobDiscoveryPage from "../pages/jobSeeker/JobDiscoveryPage";
+import JobDetailPage from "../pages/jobSeeker/JobDetailPage";
+import ApplicationsPage from "../pages/jobSeeker/ApplicationsPage";
 import VendorDashboard from "../pages/vendor/VendorDashboard";
 import VendorProfilePage from "../pages/vendor/VendorProfilePage";
 import VendorProfileCreatePage from "../pages/vendor/VendorProfileCreatePage";
@@ -51,6 +54,8 @@ export const router = createBrowserRouter([
       { path: "register", element: <RegisterPage /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
       { path: "verify-email", element: <VerifyEmailPage /> },
+      { path: "jobs", element: <JobDiscoveryPage /> },
+      { path: "jobs/:jobId", element: <JobDetailPage /> },
       {
         path: "job-seeker",
         element: <JobSeekerLayout><JobSeekerDashboard /></JobSeekerLayout>,
@@ -70,6 +75,10 @@ export const router = createBrowserRouter([
       {
         path: "job-seeker/verify",
         element: <JobSeekerLayout><JobSeekerVerifyPage /></JobSeekerLayout>,
+      },
+      {
+        path: "job-seeker/applications",
+        element: <JobSeekerLayout><ApplicationsPage /></JobSeekerLayout>,
       },
       {
         path: "vendor",

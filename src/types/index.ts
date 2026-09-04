@@ -226,3 +226,55 @@ export const RATE_TYPES = [
   { value: "daily", label: "Daily" },
   { value: "fixed", label: "Fixed" },
 ] as const;
+
+// Application types (Phase 6)
+export interface Application {
+  id: string;
+  jobId: string;
+  jobSeekerId: string;
+  vendorId: string;
+  status: ApplicationStatus;
+  appliedAt: string | null;
+  updatedAt: string | null;
+}
+
+// Public job (no vendorId exposed to seekers)
+export interface PublicJob {
+  id: string;
+  title: string;
+  description: string;
+  jobCategory: string;
+  workType: string;
+  rateType: JobRateType;
+  rateAmount: number;
+  location: JobLocation;
+  startDate: string;
+  endDate: string;
+  shiftStart: string;
+  shiftEnd: string;
+  spotsAvailable: number;
+  status: JobStatus;
+  publishedAt: string | null;
+}
+
+export interface JobDiscoveryMeta {
+  totalEstimate: number;
+  hasMore: boolean;
+  nextPageToken: string | null;
+}
+
+export interface JobDiscoveryResponse {
+  jobs: PublicJob[];
+  meta: JobDiscoveryMeta;
+}
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  applied: "Applied",
+  "under-review": "Under Review",
+  accepted: "Accepted",
+  hired: "Hired",
+  completed: "Completed",
+  rejected: "Rejected",
+  withdrawn: "Withdrawn",
+  cancelled: "Cancelled",
+};

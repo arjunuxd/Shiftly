@@ -6,6 +6,9 @@ import type {
   VendorVerificationInfo,
   Job,
   JobStatus,
+  Application,
+  JobDiscoveryResponse,
+  PublicJob,
 } from "../types";
 
 export const API_BASE_URL: string =
@@ -353,4 +356,131 @@ export async function setJobStatus(
     return closeJob(idToken, jobId);
   }
   throw new Error("Invalid status action");
+}
+
+// ─── Job Discovery ─────────────────────────────────────────────
+
+export interface JobDiscoveryParams {
+  search?: string;
+  jobCategory?: string;
+  workType?: string;
+  rateType?: string;
+  minPay?: number;
+  city?: string;
+  sortBy?: "newest" | "pay-high" | "pay-low";
+  pageToken?: string;
+}
+
+export async function discoverJobs(
+  params: JobDiscoveryParams = {},
+): Promise<JobDiscoveryResponse> {
+  const query = new URLSearchParams();
+  if (params.search) query.set("search", params.search);
+  if (params.jobCategory) query.set("jobCategory", params.jobCategory);
+  if (params.workType) query.set("workType", params.workType);
+  if (params.rateType) query.set("rateType", params.rateType);
+  if (params.minPay !== undefined) query.set("minPay", String(params.minPay));
+  if (params.city) query.set("city", params.city);
+  if (params.sortBy) query.set("sortBy", params.sortBy);
+  if (params.pageToken) query.set("pageToken", params.pageToken);
+
+  const qs = query.toString();
+  const url = `${API_BASE_URL}/api/discover${qs ? `?${qs}` : ""}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load jobs with status ${response.status}`);
+  }
+  return response.json() as Promise<JobDiscoveryResponse>;
+}
+
+export async function discoverJob(
+  jobId: string,
+  idToken?: string,
+): Promise<PublicJob & { myApplication?: { status: string } | null }> {
+  const headers: HeadersInit = {};
+  if (idToken) {
+    headers.Authorization = `Bearer ${idToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/discover/${jobId}`, {
+    headers,
+  });
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("JOB_NOT_FOUND");
+    }
+    throw new Error(`Failed to load job with status ${response.status}`);
+  }
+  return response.json() as Promise<
+    PublicJob & { myApplication?: { status: string } | null }
+  >;
+}
+
+// ─── Applications ──────────────────────────────────────────────
+
+export async function getMyApplications(
+  idToken: string,
+): Promise<Application[]> {
+  const response = await fetch(`${API_BASE_URL}/api/applications`, {
+    headers: await authHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load applications with status ${response.status}`,
+    );
+  }
+  return response.json() as Promise<Application[]>;
+}
+
+export async function getApplicationDetail(
+  idToken: string,
+  applicationId: string,
+): Promise<Application> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/applications/${applicationId}`,
+    { headers: await authHeaders(idToken) },
+  );
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("APPLICATION_NOT_FOUND");
+    }
+    throw new Error(
+      `Failed to load application with status ${response.status}`,
+    );
+  }
+  return response.json() as Promise<Application>;
+}
+
+export async function applyToJob(
+  idToken: string,
+  jobId: string,
+): Promise<Application> {
+  const response = await fetch(`${API_BASE_URL}/api/applications`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+    body: JSON.stringify({ jobId }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to apply with status ${response.status}`));
+  }
+  return response.json() as Promise<Application>;
+}
+
+export async function withdrawApplication(
+  idToken: string,
+  applicationId: string,
+): Promise<Application> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/applications/${applicationId}/withdraw`,
+    {
+      method: "PATCH",
+      headers: await authHeaders(idToken),
+      body: JSON.stringify({}),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to withdraw with status ${response.status}`));
+  }
+  return response.json() as Promise<Application>;
 }
