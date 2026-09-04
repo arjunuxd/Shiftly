@@ -2,9 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { useProfile } from "../../context/useProfile";
-import { getVerification, discoverJobs, getMyApplications } from "../../lib/api";
+import { getVerification, discoverJobs, getMyApplications, getConversations } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
-import type { VerificationRecord, PublicJob, Application } from "../../types";
+import type { VerificationRecord, PublicJob, Application, Conversation } from "../../types";
 
 function CompletenessBar({ value }: { value: number }) {
   return (
@@ -76,6 +76,7 @@ export default function JobSeekerDashboard() {
   const [verification, setVerification] = useState<VerificationRecord | null>(null);
   const [recentJobs, setRecentJobs] = useState<PublicJob[]>([]);
   const [recentApplications, setRecentApplications] = useState<Application[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [dashLoading, setDashLoading] = useState(true);
 
   useEffect(() => {
@@ -106,8 +107,12 @@ export default function JobSeekerDashboard() {
 
     try {
       const token = await getCurrentIdToken();
-      const apps = await getMyApplications(token);
+      const [apps, convs] = await Promise.all([
+        getMyApplications(token),
+        getConversations(token).catch(() => []),
+      ]);
       setRecentApplications(apps.slice(0, 5));
+      setConversations(convs);
     } catch {
       // non-blocking
     }
@@ -239,6 +244,21 @@ export default function JobSeekerDashboard() {
             <div>
               <p className="font-semibold text-neutral-900">My Applications</p>
               <p className="text-sm text-neutral-500">{recentApplications.length} active</p>
+            </div>
+          </Link>
+
+          <Link
+            to="/job-seeker/messages"
+            className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-primary-200 transition-all flex items-center gap-4"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 20.105V4.875A1.875 1.875 0 015.625 3h12.75A1.875 1.875 0 0120.25 4.875v10.5A1.875 1.875 0 0118.375 17.25H7.5l-3.75 2.855z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral-900">Messages</p>
+              <p className="text-sm text-neutral-500">{conversations.length} conversations</p>
             </div>
           </Link>
         </div>

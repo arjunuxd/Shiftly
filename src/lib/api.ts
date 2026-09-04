@@ -9,6 +9,9 @@ import type {
   Application,
   JobDiscoveryResponse,
   PublicJob,
+  Conversation,
+  Message,
+  VendorApplicationWithJob,
 } from "../types";
 
 export const API_BASE_URL: string =
@@ -483,4 +486,118 @@ export async function withdrawApplication(
     throw new Error(await parseError(response, `Failed to withdraw with status ${response.status}`));
   }
   return response.json() as Promise<Application>;
+}
+
+// ─── Vendor Applications ─────────────────────────────────────
+
+export async function getVendorJobApplications(
+  idToken: string,
+  jobId: string,
+): Promise<VendorApplicationWithJob[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/vendor/applications?jobId=${encodeURIComponent(jobId)}`,
+    { headers: await authHeaders(idToken) },
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to load applications with status ${response.status}`));
+  }
+  return response.json() as Promise<VendorApplicationWithJob[]>;
+}
+
+export async function acceptApplication(
+  idToken: string,
+  applicationId: string,
+): Promise<Application> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/vendor/applications/${applicationId}/accept`,
+    {
+      method: "PATCH",
+      headers: await authHeaders(idToken),
+      body: JSON.stringify({}),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to accept application with status ${response.status}`));
+  }
+  return response.json() as Promise<Application>;
+}
+
+export async function rejectApplication(
+  idToken: string,
+  applicationId: string,
+): Promise<Application> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/vendor/applications/${applicationId}/reject`,
+    {
+      method: "PATCH",
+      headers: await authHeaders(idToken),
+      body: JSON.stringify({}),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to reject application with status ${response.status}`));
+  }
+  return response.json() as Promise<Application>;
+}
+
+// ─── Conversations ───────────────────────────────────────────
+
+export async function getConversations(
+  idToken: string,
+): Promise<Conversation[]> {
+  const response = await fetch(`${API_BASE_URL}/api/conversations`, {
+    headers: await authHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to load conversations with status ${response.status}`));
+  }
+  return response.json() as Promise<Conversation[]>;
+}
+
+export async function createConversation(
+  idToken: string,
+  data: { jobSeekerId: string; applicationId: string; jobId: string },
+): Promise<Conversation> {
+  const response = await fetch(`${API_BASE_URL}/api/conversations`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to create conversation with status ${response.status}`));
+  }
+  return response.json() as Promise<Conversation>;
+}
+
+export async function getConversationMessages(
+  idToken: string,
+  conversationId: string,
+): Promise<Message[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/conversations/${conversationId}/messages`,
+    { headers: await authHeaders(idToken) },
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to load messages with status ${response.status}`));
+  }
+  return response.json() as Promise<Message[]>;
+}
+
+export async function sendConversationMessage(
+  idToken: string,
+  conversationId: string,
+  text: string,
+): Promise<Message> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/conversations/${conversationId}/messages`,
+    {
+      method: "POST",
+      headers: await authHeaders(idToken),
+      body: JSON.stringify({ text }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to send message with status ${response.status}`));
+  }
+  return response.json() as Promise<Message>;
 }

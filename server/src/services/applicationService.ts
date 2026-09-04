@@ -32,7 +32,7 @@ function serializeApplication(id: string, data: ApplicationDocument): Applicatio
 }
 
 const VALID_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
-  applied: ["withdrawn"],
+  applied: ["withdrawn", "accepted", "rejected"],
   withdrawn: [],
   accepted: [],
   rejected: [],

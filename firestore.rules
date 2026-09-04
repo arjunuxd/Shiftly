@@ -32,30 +32,46 @@ service cloud.firestore {
     }
 
     // jobs/{jobId}
-    // Client direct reads are denied; job access is controlled via the server API.
-    // Vendors manage jobs through the server API only.
     match /jobs/{jobId} {
       allow read, write: if false;
     }
 
     // applications/{applicationId}
-    // Application ID format: {jobId}_{jobSeekerId}
-    // Job Seekers can read their own applications.
-    // Job Seekers can create their own applications (validated server-side).
-    // Job Seekers can update their own applications (withdraw only, validated server-side).
-    // All writes go through the server API.
     match /applications/{applicationId} {
       allow read: if request.auth != null
-        && applicationId.matches(".*_" + request.auth.uid + "$");
+        && (applicationId.matches(".*_" + request.auth.uid + "$")
+            || resource.data.vendorId == request.auth.uid);
       allow create: if request.auth != null
         && request.resource.data.jobSeekerId == request.auth.uid
         && request.resource.data.keys().hasAll(["jobId", "jobSeekerId", "vendorId", "status", "createdAt", "updatedAt"])
         && request.resource.data.status == "applied";
       allow update: if request.auth != null
-        && applicationId.matches(".*_" + request.auth.uid + "$")
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
-        && request.resource.data.status == "withdrawn";
+        && (applicationId.matches(".*_" + request.auth.uid + "$")
+            || resource.data.vendorId == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"]);
       allow delete: if false;
+    }
+
+    // conversations/{conversationId}
+    match /conversations/{conversationId} {
+      allow read: if request.auth != null
+        && (resource.data.participantVendorId == request.auth.uid
+            || resource.data.participantJobSeekerId == request.auth.uid);
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null
+          && exists(/databases/$(database)/documents/conversations/$(conversationId))
+          && (get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantVendorId == request.auth.uid
+              || get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantJobSeekerId == request.auth.uid);
+        allow create: if request.auth != null
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.keys().hasAll(["senderId", "text", "createdAt"])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000;
+        allow update, delete: if false;
+      }
     }
   }
 }

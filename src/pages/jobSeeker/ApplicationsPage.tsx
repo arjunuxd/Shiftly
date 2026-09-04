@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { getMyApplications, withdrawApplication } from "../../lib/api";
+import { getMyApplications, withdrawApplication, createConversation } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import type { Application } from "../../types";
 import { APPLICATION_STATUS_LABELS } from "../../types";
@@ -42,6 +42,7 @@ function ApplicationCard({
 }) {
   const [confirming, setConfirming] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [messaging, setMessaging] = useState(false);
 
   const handleWithdraw = async () => {
     setWithdrawing(true);
@@ -56,6 +57,23 @@ function ApplicationCard({
       setConfirming(false);
     }
   };
+
+  async function handleStartMessaging() {
+    setMessaging(true);
+    try {
+      const token = await getCurrentIdToken();
+      await createConversation(token, {
+        jobSeekerId: application.jobSeekerId,
+        applicationId: application.id,
+        jobId: application.jobId,
+      });
+      window.location.href = "/job-seeker/messages";
+    } catch {
+      // error handled silently
+    } finally {
+      setMessaging(false);
+    }
+  }
 
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -121,6 +139,16 @@ function ApplicationCard({
                 </button>
               )}
             </>
+          )}
+          {application.status === "accepted" && (
+            <button
+              type="button"
+              disabled={messaging}
+              onClick={() => void handleStartMessaging()}
+              className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            >
+              {messaging ? "..." : "Message Vendor"}
+            </button>
           )}
         </div>
       </div>

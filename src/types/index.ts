@@ -278,3 +278,26 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   withdrawn: "Withdrawn",
   cancelled: "Cancelled",
 };
+
+// Conversation types (Phase 7)
+export interface Conversation {
+  id: string;
+  participantVendorId: string;
+  participantJobSeekerId: string;
+  applicationId: string;
+  jobId: string;
+  lastMessageText: string;
+  lastMessageAt: string | null;
+  createdAt: string | null;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  text: string;
+  createdAt: string | null;
+}
+
+export interface VendorApplicationWithJob extends Application {
+  jobTitle: string;
+}

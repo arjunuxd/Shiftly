@@ -178,14 +178,22 @@ export default function VendorJobsPage() {
                     </>
                   )}
                   {job.status === "published" && (
-                    <button
-                      type="button"
-                      disabled={actionJobId === job.id}
-                      onClick={() => void handleAction(job, "closed")}
-                      className="inline-flex items-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60"
-                    >
-                      Close Job
-                    </button>
+                    <>
+                      <Link
+                        to={`/vendor/jobs/${job.id}/applicants`}
+                        className="inline-flex items-center rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+                      >
+                        View Applicants
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={actionJobId === job.id}
+                        onClick={() => void handleAction(job, "closed")}
+                        className="inline-flex items-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60"
+                      >
+                        Close Job
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

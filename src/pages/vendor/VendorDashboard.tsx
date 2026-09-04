@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { useVendorProfile } from "../../context/useVendorProfile";
 import { VerificationBadge } from "../../components/vendor/VendorProfileDisplay";
-import { getMyJobs, getVendorVerification } from "../../lib/api";
+import { getMyJobs, getVendorVerification, getConversations } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import type { Job } from "../../types";
 
@@ -35,6 +35,7 @@ export default function VendorDashboard() {
   const [verificationStatus, setVerificationStatus] = useState<
     string | undefined
   >(undefined);
+  const [conversationCount, setConversationCount] = useState(0);
 
   useEffect(() => {
     void fetchProfile();
@@ -43,12 +44,14 @@ export default function VendorDashboard() {
   const loadStats = useCallback(async () => {
     try {
       const token = await getCurrentIdToken();
-      const [jobList, ver] = await Promise.all([
+      const [jobList, ver, convs] = await Promise.all([
         getMyJobs(token).catch(() => []),
         getVendorVerification(token).catch(() => null),
+        getConversations(token).catch(() => []),
       ]);
       setJobs(jobList);
       setVerificationStatus(ver?.status ?? undefined);
+      setConversationCount(convs.length);
     } catch {
       // Non-blocking.
     }
@@ -193,6 +196,33 @@ export default function VendorDashboard() {
             </Link>
           </div>
         </div>
+
+        {/* Messages Card */}
+        {profile && (
+          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-neutral-900">Messages</h2>
+              <Link
+                to="/vendor/messages"
+                className="text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
+                Open inbox &rarr;
+              </Link>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg bg-primary-50 p-4 text-center">
+                <p className="text-2xl font-bold text-primary-700">{conversationCount}</p>
+                <p className="text-sm text-primary-600">Conversations</p>
+              </div>
+              <div className="rounded-lg bg-green-50 p-4 text-center">
+                <p className="text-2xl font-bold text-green-700">
+                  {jobs.filter((j) => j.status === "published").reduce((sum, j) => sum + j.spotsAvailable, 0)}
+                </p>
+                <p className="text-sm text-green-600">Open spots</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

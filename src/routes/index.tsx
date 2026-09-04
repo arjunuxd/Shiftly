@@ -14,6 +14,7 @@ import JobSeekerVerifyPage from "../pages/jobSeeker/JobSeekerVerifyPage";
 import JobDiscoveryPage from "../pages/jobSeeker/JobDiscoveryPage";
 import JobDetailPage from "../pages/jobSeeker/JobDetailPage";
 import ApplicationsPage from "../pages/jobSeeker/ApplicationsPage";
+import MessagingPage from "../pages/jobSeeker/MessagingPage";
 import VendorDashboard from "../pages/vendor/VendorDashboard";
 import VendorProfilePage from "../pages/vendor/VendorProfilePage";
 import VendorProfileCreatePage from "../pages/vendor/VendorProfileCreatePage";
@@ -22,6 +23,8 @@ import VendorVerifyPage from "../pages/vendor/VendorVerifyPage";
 import VendorJobsPage from "../pages/vendor/VendorJobsPage";
 import VendorJobCreatePage from "../pages/vendor/VendorJobCreatePage";
 import VendorJobEditPage from "../pages/vendor/VendorJobEditPage";
+import VendorJobApplicantsPage from "../pages/vendor/VendorJobApplicantsPage";
+import VendorMessagingPage from "../pages/vendor/VendorMessagingPage";
 import SuperadminDashboard from "../pages/admin/SuperadminDashboard";
 import NotFoundPage from "../pages/NotFoundPage";
 import { RoleRoute } from "../components/guards/RouteGuards";
@@ -81,6 +84,10 @@ export const router = createBrowserRouter([
         element: <JobSeekerLayout><ApplicationsPage /></JobSeekerLayout>,
       },
       {
+        path: "job-seeker/messages",
+        element: <JobSeekerLayout><MessagingPage /></JobSeekerLayout>,
+      },
+      {
         path: "vendor",
         element: <VendorLayout><VendorDashboard /></VendorLayout>,
       },
@@ -111,6 +118,14 @@ export const router = createBrowserRouter([
       {
         path: "vendor/jobs/:jobId/edit",
         element: <VendorLayout><VendorJobEditPage /></VendorLayout>,
+      },
+      {
+        path: "vendor/jobs/:jobId/applicants",
+        element: <VendorLayout><VendorJobApplicantsPage /></VendorLayout>,
+      },
+      {
+        path: "vendor/messages",
+        element: <VendorLayout><VendorMessagingPage /></VendorLayout>,
       },
       {
         path: "admin",

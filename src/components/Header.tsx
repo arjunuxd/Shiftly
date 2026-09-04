@@ -56,11 +56,27 @@ export default function Header() {
                   </Link>
                 )}
                 {role === "job_seeker" && (
+                  <>
+                    <Link
+                      to="/job-seeker/applications"
+                      className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                    >
+                      Applications
+                    </Link>
+                    <Link
+                      to="/job-seeker/messages"
+                      className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                    >
+                      Messages
+                    </Link>
+                  </>
+                )}
+                {role === "vendor" && (
                   <Link
-                    to="/job-seeker/applications"
+                    to="/vendor/messages"
                     className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
                   >
-                    Applications
+                    Messages
                   </Link>
                 )}
                 {dashboardPath && (
@@ -131,12 +147,30 @@ export default function Header() {
               ) : (
                 <>
                   {role === "job_seeker" && (
+                    <>
+                      <Link
+                        to="/job-seeker/applications"
+                        className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Applications
+                      </Link>
+                      <Link
+                        to="/job-seeker/messages"
+                        className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Messages
+                      </Link>
+                    </>
+                  )}
+                  {role === "vendor" && (
                     <Link
-                      to="/job-seeker/applications"
+                      to="/vendor/messages"
                       className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      Applications
+                      Messages
                     </Link>
                   )}
                   {dashboardPath && (

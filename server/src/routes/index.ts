@@ -7,6 +7,8 @@ import vendorVerificationRoutes from "./vendorVerification.js";
 import jobsRoutes from "./jobs.js";
 import applicationsRoutes from "./applications.js";
 import jobDiscoveryRoutes from "./jobDiscovery.js";
+import vendorApplicationsRoutes from "./vendorApplications.js";
+import conversationsRoutes from "./conversations.js";
 
 const router = Router();
 
@@ -22,5 +24,7 @@ router.use("/vendor/verification", vendorVerificationRoutes);
 router.use("/jobs", jobsRoutes);
 router.use("/applications", applicationsRoutes);
 router.use("/discover", jobDiscoveryRoutes);
+router.use("/vendor/applications", vendorApplicationsRoutes);
+router.use("/conversations", conversationsRoutes);
 
 export default router;
