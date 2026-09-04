@@ -94,7 +94,7 @@ export async function getProfile(idToken: string): Promise<Profile> {
     throw new Error(`Failed to load profile with status ${response.status}`);
   }
 
-  return response.json() as Promise<Profile>;
+  return normalizeProfile(await response.json());
 }
 
 export async function createProfile(
@@ -115,7 +115,7 @@ export async function createProfile(
     throw new Error(message);
   }
 
-  return response.json() as Promise<Profile>;
+  return normalizeProfile(await response.json());
 }
 
 export async function updateProfile(
@@ -136,7 +136,32 @@ export async function updateProfile(
     throw new Error(message);
   }
 
-  return response.json() as Promise<Profile>;
+  return normalizeProfile(await response.json());
+}
+
+function normalizeProfile(raw: Partial<Profile> & { id: string }): Profile {
+  return {
+    personalInfo: raw.personalInfo ?? { fullName: "", bio: "", phone: "" },
+    skills: raw.skills ?? [],
+    experience: raw.experience ?? [],
+    education: raw.education ?? [],
+    availability: raw.availability ?? [],
+    workPreferences: raw.workPreferences ?? { jobCategories: [], workTypes: [] },
+    location: raw.location ?? {
+      city: "",
+      state: "",
+      country: "",
+      latitude: null,
+      longitude: null,
+    },
+    photoUrl: raw.photoUrl ?? null,
+    resumeUrl: raw.resumeUrl ?? null,
+    resumeName: raw.resumeName ?? null,
+    certificates: raw.certificates ?? [],
+    portfolioLinks: raw.portfolioLinks ?? [],
+    completeness: raw.completeness ?? 0,
+    id: raw.id,
+  };
 }
 
 export async function getVerification(

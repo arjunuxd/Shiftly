@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { getMyApplications, withdrawApplication, createConversation } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
+import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
 import type { Application } from "../../types";
 import { APPLICATION_STATUS_LABELS } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "";
@@ -84,7 +86,7 @@ function ApplicationCard({
               to={`/jobs/${application.jobId}`}
               className="text-lg font-semibold text-neutral-900 hover:text-primary-600 transition-colors leading-snug"
             >
-              Job #{application.jobId.slice(0, 8)}
+              {application.jobTitle ?? `Job #${application.jobId.slice(0, 8)}`}
             </Link>
             <StatusBadge status={application.status} />
           </div>
@@ -201,8 +203,9 @@ export default function ApplicationsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <JobSeekerNav />
+      <div className="mt-6 mb-8">
         <h1 className="text-3xl font-bold text-neutral-900 mb-2">
           My Applications
         </h1>
@@ -218,19 +221,19 @@ export default function ApplicationsPage() {
           <SkeletonCard />
         </div>
       ) : error ? (
-        <div className="text-center py-16">
-          <svg className="mx-auto h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <p className="text-neutral-700 font-medium mb-2">Something went wrong</p>
-          <p className="text-neutral-500 text-sm mb-4">{error}</p>
-          <button
-            type="button"
-            onClick={() => void fetchApplications()}
-            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
-          >
-            Try Again
-          </button>
+        <div className="mx-auto max-w-md">
+          <FriendlyAlert icon="error" title="We couldn't load your applications">
+            {error}
+          </FriendlyAlert>
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => void fetchApplications()}
+              className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       ) : applications.length === 0 ? (
         <div className="text-center py-16">

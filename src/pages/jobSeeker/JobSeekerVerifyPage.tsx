@@ -8,6 +8,7 @@ import {
 } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import type { VerificationRecord } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 function StatusIcon({ status }: { status: string }) {
   if (status === "approved") {
@@ -157,21 +158,29 @@ export default function JobSeekerVerifyPage() {
                 Verification rejected
               </h2>
               {verification?.rejectionReason && (
-                <p className="mb-4 text-sm text-red-600 bg-red-50 rounded-lg p-3">
-                  Reason: {verification.rejectionReason}
-                </p>
+                <div className="mb-4">
+                  <FriendlyAlert icon="error" title="Why it was rejected">
+                    {verification.rejectionReason}
+                  </FriendlyAlert>
+                </div>
               )}
               <p className="text-neutral-500 mb-6">
                 Your verification could not be approved. Please check your
                 information and resubmit.
               </p>
               {error && (
-                <p className="mb-4 text-sm text-red-600">{error}</p>
+                <div className="mb-4">
+                  <FriendlyAlert icon="error" title="We couldn't resubmit">
+                    {error}
+                  </FriendlyAlert>
+                </div>
               )}
               {success && (
-                <p className="mb-4 text-sm text-green-600">
-                  Verification resubmitted successfully.
-                </p>
+                <div className="mb-4">
+                  <FriendlyAlert icon="success" title="Resubmitted">
+                    Your verification has been resubmitted for review.
+                  </FriendlyAlert>
+                </div>
               )}
               <button
                 type="button"
@@ -204,12 +213,18 @@ export default function JobSeekerVerifyPage() {
                 </ul>
               </div>
               {error && (
-                <p className="mb-4 text-sm text-red-600">{error}</p>
+                <div className="mb-4">
+                  <FriendlyAlert icon="error" title="We couldn't submit">
+                    {error}
+                  </FriendlyAlert>
+                </div>
               )}
               {success && (
-                <p className="mb-4 text-sm text-green-600">
-                  Verification submitted! You'll be notified once it's reviewed.
-                </p>
+                <div className="mb-4">
+                  <FriendlyAlert icon="success" title="Submitted">
+                    You'll be notified once your verification is reviewed.
+                  </FriendlyAlert>
+                </div>
               )}
               <button
                 type="button"

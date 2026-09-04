@@ -6,12 +6,14 @@ import {
   adminRestoreUser,
 } from "../../lib/api";
 import type { AdminUser } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -51,7 +53,7 @@ export default function AdminUsersPage() {
       await adminSuspendUser(token, uid, reason.trim());
       await loadUsers();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to suspend user.");
+      setActionError(e instanceof Error ? e.message : "Failed to suspend user.");
     }
   }
 
@@ -62,7 +64,7 @@ export default function AdminUsersPage() {
       await adminRestoreUser(token, uid);
       await loadUsers();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to restore user.");
+      setActionError(e instanceof Error ? e.message : "Failed to restore user.");
     }
   }
 
@@ -101,9 +103,19 @@ export default function AdminUsersPage() {
         />
       </div>
 
+      {actionError && (
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="That action didn't go through">
+            {actionError}
+          </FriendlyAlert>
+        </div>
+      )}
+
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p className="text-red-800 text-sm">{error}</p>
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="We couldn't load the user list">
+            {error}
+          </FriendlyAlert>
         </div>
       )}
 

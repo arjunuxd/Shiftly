@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { FormEvent, ChangeEvent } from "react";
-import FormField, { FormError, SubmitButton } from "../ui/FormField";
+import FormField, { FormError, SubmitButton, FriendlyAlert } from "../ui/FormField";
 import type { VendorProfile } from "../../types";
 import { BUSINESS_TYPES } from "../../types";
 
@@ -110,11 +110,11 @@ export default function VendorProfileForm({
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-8">
-      {error && <FormError>{error}</FormError>}
+      {error && <FormError title="We couldn't save your profile">{error}</FormError>}
       {success && (
-        <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200">
-          Vendor profile saved successfully.
-        </div>
+        <FriendlyAlert icon="success" title="Profile saved">
+          Your business details are live.
+        </FriendlyAlert>
       )}
 
       {/* Business Information */}

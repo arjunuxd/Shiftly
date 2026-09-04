@@ -35,7 +35,20 @@ function EmptyState({ text }: { text: string }) {
 }
 
 export default function ProfileDisplay({ profile }: { profile: Profile }) {
-  const { personalInfo, skills, experience, education, availability, workPreferences, location } = profile;
+  const {
+    personalInfo,
+    skills,
+    experience,
+    education,
+    availability,
+    workPreferences,
+    location,
+    photoUrl,
+    resumeUrl,
+    resumeName,
+    certificates,
+    portfolioLinks,
+  } = profile;
 
   const hasAvailability = availability.some(
     (a) => a.startTime !== "09:00" || a.endTime !== "17:00",
@@ -45,14 +58,22 @@ export default function ProfileDisplay({ profile }: { profile: Profile }) {
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-start gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xl font-bold text-primary-700">
-          {personalInfo.fullName
-            .split(" ")
-            .map((n) => n[0])
-            .join("")
-            .toUpperCase()
-            .slice(0, 2)}
-        </div>
+        {photoUrl ? (
+          <img
+            src={photoUrl}
+            alt={personalInfo.fullName}
+            className="h-16 w-16 shrink-0 rounded-full object-cover border border-neutral-200"
+          />
+        ) : (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xl font-bold text-primary-700">
+            {personalInfo.fullName
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2)}
+          </div>
+        )}
         <div>
           <h2 className="text-2xl font-bold text-neutral-900">
             {personalInfo.fullName}
@@ -67,6 +88,76 @@ export default function ProfileDisplay({ profile }: { profile: Profile }) {
       {personalInfo.bio && (
         <Section title="About">
           <p className="text-sm text-neutral-600 whitespace-pre-line">{personalInfo.bio}</p>
+        </Section>
+      )}
+
+      {/* Resume */}
+      {resumeUrl && (
+        <Section title="Resume">
+          <a
+            href={resumeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+          >
+            <svg className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+            </svg>
+            {resumeName ?? "View resume"}
+          </a>
+        </Section>
+      )}
+
+      {/* Certificates */}
+      {certificates.length > 0 && (
+        <Section title="Certificates">
+          <div className="flex flex-col gap-4">
+            {certificates.map((cert) => (
+              <div key={cert.id} className="rounded-lg border border-neutral-100 bg-neutral-50 p-4">
+                <p className="font-medium text-neutral-900">{cert.name}</p>
+                <p className="text-sm text-neutral-500">{cert.issuer}</p>
+                {(cert.issueDate || cert.expiryDate) && (
+                  <p className="mt-1 text-xs text-neutral-400">
+                    {cert.issueDate}
+                    {cert.expiryDate ? ` — expires ${cert.expiryDate}` : ""}
+                  </p>
+                )}
+                {cert.credentialUrl && (
+                  <a
+                    href={cert.credentialUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-sm text-primary-600 hover:text-primary-700"
+                  >
+                    View certificate
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Portfolio */}
+      {portfolioLinks.length > 0 && (
+        <Section title="Portfolio">
+          <ul className="space-y-2">
+            {portfolioLinks.map((item) => (
+              <li key={item.id}>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-primary-600 hover:text-primary-700"
+                >
+                  {item.title || item.url}
+                </a>
+                {item.description && (
+                  <p className="text-sm text-neutral-500">{item.description}</p>
+                )}
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
 

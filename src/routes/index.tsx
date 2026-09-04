@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, useLocation } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import AdminLayout from "../layouts/AdminLayout";
 import HomePage from "../pages/public/HomePage";
@@ -7,8 +8,14 @@ import LoginPage from "../pages/public/LoginPage";
 import RegisterPage from "../pages/public/RegisterPage";
 import ForgotPasswordPage from "../pages/public/ForgotPasswordPage";
 import VerifyEmailPage from "../pages/public/VerifyEmailPage";
+import AboutPage from "../pages/public/AboutPage";
+import HowItWorksPage from "../pages/public/HowItWorksPage";
+import ContactPage from "../pages/public/ContactPage";
+import PrivacyPage from "../pages/public/PrivacyPage";
+import TermsPage from "../pages/public/TermsPage";
 import JobSeekerDashboard from "../pages/jobSeeker/JobSeekerDashboard";
 import JobSeekerProfilePage from "../pages/jobSeeker/JobSeekerProfilePage";
+import JobSeekerProfilePreviewPage from "../pages/jobSeeker/JobSeekerProfilePreviewPage";
 import JobSeekerProfileEditPage from "../pages/jobSeeker/JobSeekerProfileEditPage";
 import JobSeekerProfileCreatePage from "../pages/jobSeeker/JobSeekerProfileCreatePage";
 import JobSeekerVerifyPage from "../pages/jobSeeker/JobSeekerVerifyPage";
@@ -38,6 +45,24 @@ import { RoleRoute } from "../components/guards/RouteGuards";
 import { ProfileProvider } from "../context/ProfileContext";
 import { VendorProfileProvider } from "../context/VendorProfileContext";
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    const prefersReduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (prefersReduced) {
+      window.scrollTo(0, 0);
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [pathname]);
+  return null;
+}
+
 function JobSeekerLayout({ children }: { children: ReactNode }) {
   return (
     <RoleRoute role="job_seeker">
@@ -65,15 +90,32 @@ function AdminRoute({ children }: { children: ReactNode }) {
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <MainLayout />,
+    element: (
+      <>
+        <ScrollToTop />
+        <MainLayout />
+      </>
+    ),
     children: [
       { index: true, element: <HomePage /> },
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
       { path: "verify-email", element: <VerifyEmailPage /> },
+      { path: "about", element: <AboutPage /> },
+      { path: "how-it-works", element: <HowItWorksPage /> },
+      { path: "contact", element: <ContactPage /> },
+      { path: "privacy", element: <PrivacyPage /> },
+      { path: "terms", element: <TermsPage /> },
       { path: "jobs", element: <JobDiscoveryPage /> },
-      { path: "jobs/:jobId", element: <JobDetailPage /> },
+      {
+        path: "jobs/:jobId",
+        element: (
+          <ProfileProvider>
+            <JobDetailPage />
+          </ProfileProvider>
+        ),
+      },
       {
         path: "job-seeker",
         element: <JobSeekerLayout><JobSeekerDashboard /></JobSeekerLayout>,
@@ -91,11 +133,19 @@ export const router = createBrowserRouter([
         element: <JobSeekerLayout><JobSeekerProfileEditPage /></JobSeekerLayout>,
       },
       {
+        path: "job-seeker/profile/preview",
+        element: <JobSeekerLayout><JobSeekerProfilePreviewPage /></JobSeekerLayout>,
+      },
+      {
         path: "job-seeker/verify",
         element: <JobSeekerLayout><JobSeekerVerifyPage /></JobSeekerLayout>,
       },
       {
         path: "job-seeker/applications",
+        element: <JobSeekerLayout><ApplicationsPage /></JobSeekerLayout>,
+      },
+      {
+        path: "job-seeker/applications/:applicationId",
         element: <JobSeekerLayout><ApplicationsPage /></JobSeekerLayout>,
       },
       {

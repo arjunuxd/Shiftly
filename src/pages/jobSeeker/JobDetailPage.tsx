@@ -3,7 +3,9 @@ import { useParams, Link } from "react-router-dom";
 import { discoverJob, applyToJob } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import { useAuth } from "../../context/useAuth";
+import { useProfile } from "../../context/useProfile";
 import { CompactVerificationBadge } from "../../components/ui/VerificationBadge";
+import { FriendlyAlert } from "../../components/ui/FormField";
 import type { PublicJob } from "../../types";
 
 function formatPay(rateType: string, rateAmount: number): string {
@@ -24,6 +26,7 @@ function formatDate(dateStr: string | null): string {
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const { authenticated, role } = useAuth();
+  const { profile, profileLoading, fetchProfile } = useProfile();
 
   const [job, setJob] = useState<
     (PublicJob & { myApplication?: { status: string } | null }) | null
@@ -33,6 +36,12 @@ export default function JobDetailPage() {
   const [applying, setApplying] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (role === "job_seeker") {
+      void fetchProfile();
+    }
+  }, [role, fetchProfile]);
 
   const fetchJob = useCallback(async () => {
     if (!jobId) return;
@@ -103,19 +112,18 @@ export default function JobDetailPage() {
     );
   }
 
-  if (error || !job) {
+if (error || !job) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="text-center py-16">
-          <svg className="mx-auto h-12 w-12 text-neutral-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <p className="text-neutral-700 font-medium mb-2">{error ?? "Job not found"}</p>
+        <div className="mx-auto max-w-md py-16">
+          <FriendlyAlert icon="error" title="We couldn't load this job">
+            {error ?? "Job not found"}
+          </FriendlyAlert>
           <Link
             to="/jobs"
-            className="inline-block mt-4 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
+            className="mt-4 inline-block px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
           >
-            Back to Jobs
+            Browse jobs
           </Link>
         </div>
       </div>
@@ -365,8 +373,50 @@ export default function JobDetailPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {applyError && (
-                <p className="text-red-600 text-sm">{applyError}</p>
+                <FriendlyAlert icon="error" title="We couldn't submit your application">
+                  {applyError}
+                </FriendlyAlert>
               )}
+              {!profileLoading &&
+                profile &&
+                profile.completeness > 0 &&
+                profile.completeness < 60 && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 flex items-start gap-2">
+                    <svg className="h-4 w-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <span>
+                      Your profile is {profile.completeness}% complete. A more
+                      complete profile is more likely to be accepted.{" "}
+                      <Link
+                        to="/job-seeker/profile/edit"
+                        className="font-semibold text-amber-900 underline hover:text-amber-950"
+                      >
+                        Complete it now
+                      </Link>
+                    </span>
+                  </div>
+                )}
+              {!profileLoading &&
+                authenticated &&
+                role === "job_seeker" &&
+                profile === null && (
+                  <div className="rounded-lg border border-primary-200 bg-primary-50 p-3 text-sm text-primary-800 flex items-start gap-2">
+                    <svg className="h-4 w-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                    </svg>
+                    <span>
+                      You don&apos;t have a profile yet. Create one before
+                      applying to increase your chances.{" "}
+                      <Link
+                        to="/job-seeker/profile/create"
+                        className="font-semibold text-primary-900 underline hover:text-primary-950"
+                      >
+                        Create profile
+                      </Link>
+                    </span>
+                  </div>
+                )}
               <button
                 type="button"
                 onClick={() => void handleApply()}
@@ -454,10 +504,19 @@ function WithdrawSection({
 
   return (
     <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-      <p className="text-sm text-red-800 mb-3">
-        Are you sure you want to withdraw your application? This cannot be undone.
+      <p className="text-sm font-semibold text-red-800 mb-1">
+        Withdraw this application?
       </p>
-      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      <p className="text-sm text-red-700 mb-3">
+        This cannot be undone.
+      </p>
+      {error && (
+        <div className="mb-3">
+          <FriendlyAlert icon="error" title="We couldn't withdraw">
+            {error}
+          </FriendlyAlert>
+        </div>
+      )}
       <div className="flex gap-2">
         <button
           type="button"

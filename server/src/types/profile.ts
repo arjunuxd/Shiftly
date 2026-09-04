@@ -47,6 +47,22 @@ export interface ProfileLocation {
   longitude: number | null;
 }
 
+export interface ProfileCertificate {
+  id: string;
+  name: string;
+  issuer: string;
+  issueDate: string;
+  expiryDate: string;
+  credentialUrl: string;
+}
+
+export interface ProfilePortfolioLink {
+  id: string;
+  title: string;
+  url: string;
+  description: string;
+}
+
 export interface ProfileDocument {
   personalInfo: ProfilePersonalInfo;
   skills: ProfileSkill[];
@@ -55,6 +71,11 @@ export interface ProfileDocument {
   availability: ProfileAvailabilityDay[];
   workPreferences: ProfileWorkPreferences;
   location: ProfileLocation;
+  photoUrl: string | null;
+  resumeUrl: string | null;
+  resumeName: string | null;
+  certificates: ProfileCertificate[];
+  portfolioLinks: ProfilePortfolioLink[];
   createdAt: unknown;
   updatedAt: unknown;
 }

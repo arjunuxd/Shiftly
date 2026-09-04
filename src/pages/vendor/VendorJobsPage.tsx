@@ -7,6 +7,7 @@ import {
 } from "../../lib/api";
 import type { Job } from "../../types";
 import { JOB_CATEGORIES, WORK_TYPES, RATE_TYPES } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   JOB_CATEGORIES.map((c) => [c.value, c.label]),
@@ -102,8 +103,10 @@ export default function VendorJobsPage() {
       </div>
 
       {actionError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {actionError}
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="We couldn't do that">
+            {actionError}
+          </FriendlyAlert>
         </div>
       )}
 
@@ -112,9 +115,9 @@ export default function VendorJobsPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
         </div>
       ) : error ? (
-        <div className="rounded-lg bg-red-50 p-6 text-sm text-red-700 border border-red-200">
+        <FriendlyAlert icon="error" title="We couldn't load your jobs">
           {error}
-        </div>
+        </FriendlyAlert>
       ) : !jobs || jobs.length === 0 ? (
         <div className="rounded-xl border border-neutral-200 bg-white p-10 text-center shadow-sm">
           <p className="text-neutral-500 mb-4">

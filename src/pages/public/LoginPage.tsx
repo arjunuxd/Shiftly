@@ -71,7 +71,7 @@ export default function LoginPage() {
           className="mt-8 rounded-xl border border-neutral-200 bg-white p-8 shadow-sm"
         >
           <div className="flex flex-col gap-4">
-            {error && <FormError>{error}</FormError>}
+            {error && <FormError title="We couldn't sign you in">{error}</FormError>}
 
             <FormField
               type="email"

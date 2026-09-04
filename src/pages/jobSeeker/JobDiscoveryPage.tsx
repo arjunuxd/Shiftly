@@ -7,6 +7,7 @@ import {
 import { getCurrentIdToken } from "../../lib/auth";
 import { useAuth } from "../../context/useAuth";
 import { CompactVerificationBadge } from "../../components/ui/VerificationBadge";
+import { FriendlyAlert } from "../../components/ui/FormField";
 import type { PublicJob, JobDiscoveryMeta } from "../../types";
 import {
   JOB_CATEGORIES,
@@ -645,19 +646,19 @@ export default function JobDiscoveryPage() {
           <SkeletonCard />
         </div>
       ) : error ? (
-        <div className="text-center py-16">
-          <svg className="mx-auto h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <p className="text-neutral-700 font-medium mb-2">Something went wrong</p>
-          <p className="text-neutral-500 text-sm mb-4">{error}</p>
-          <button
-            type="button"
-            onClick={() => void fetchJobs(buildParams())}
-            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
-          >
-            Try Again
-          </button>
+        <div className="mx-auto max-w-md">
+          <FriendlyAlert icon="error" title="We couldn't load jobs">
+            {error}
+          </FriendlyAlert>
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => void fetchJobs(buildParams())}
+              className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       ) : jobs.length === 0 ? (
         <div className="text-center py-16">

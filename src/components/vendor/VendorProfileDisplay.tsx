@@ -1,6 +1,7 @@
 import type { VendorProfile } from "../../types";
 import { BUSINESS_TYPES } from "../../types";
 import { VerificationBadge } from "../ui/VerificationBadge";
+import { FriendlyAlert } from "../ui/FormField";
 
 export { VerificationBadge };
 
@@ -66,10 +67,9 @@ export default function VendorProfileDisplay({
 
       {/* Danger notice if rejected */}
       {verification.status === "rejected" && verification.rejectionReason && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <p className="font-medium mb-1">Verification rejected</p>
-          <p>Reason: {verification.rejectionReason}</p>
-        </div>
+        <FriendlyAlert icon="error" title="Verification rejected">
+          Reason: {verification.rejectionReason}
+        </FriendlyAlert>
       )}
 
       {/* About */}

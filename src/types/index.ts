@@ -73,6 +73,22 @@ export interface ProfileLocation {
   longitude: number | null;
 }
 
+export interface ProfileCertificate {
+  id: string;
+  name: string;
+  issuer: string;
+  issueDate: string;
+  expiryDate: string;
+  credentialUrl: string;
+}
+
+export interface ProfilePortfolioLink {
+  id: string;
+  title: string;
+  url: string;
+  description: string;
+}
+
 export interface Profile {
   id: string;
   personalInfo: ProfilePersonalInfo;
@@ -82,6 +98,11 @@ export interface Profile {
   availability: ProfileAvailabilityDay[];
   workPreferences: ProfileWorkPreferences;
   location: ProfileLocation;
+  photoUrl: string | null;
+  resumeUrl: string | null;
+  resumeName: string | null;
+  certificates: ProfileCertificate[];
+  portfolioLinks: ProfilePortfolioLink[];
   completeness: number;
 }
 
@@ -232,6 +253,7 @@ export const RATE_TYPES = [
 export interface Application {
   id: string;
   jobId: string;
+  jobTitle?: string;
   jobSeekerId: string;
   vendorId: string;
   status: ApplicationStatus;

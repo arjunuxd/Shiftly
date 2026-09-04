@@ -10,6 +10,7 @@ import {
   updateProfile,
 } from "../services/profileService.js";
 import { validateProfile } from "../validation/profile.js";
+import type { ProfileCertificate, ProfilePortfolioLink } from "../types/profile.js";
 
 const router = Router();
 
@@ -91,6 +92,11 @@ router.post(
         latitude: number | null;
         longitude: number | null;
       },
+      photoUrl: (body.photoUrl as string | null) ?? null,
+      resumeUrl: (body.resumeUrl as string | null) ?? null,
+      resumeName: (body.resumeName as string | null) ?? null,
+      certificates: (body.certificates as ProfileCertificate[]) ?? [],
+      portfolioLinks: (body.portfolioLinks as ProfilePortfolioLink[]) ?? [],
     });
 
     res.status(201).json(profile);
@@ -124,6 +130,11 @@ router.patch(
       "availability",
       "workPreferences",
       "location",
+      "photoUrl",
+      "resumeUrl",
+      "resumeName",
+      "certificates",
+      "portfolioLinks",
     ];
 
     const updates: Record<string, unknown> = {};

@@ -25,6 +25,11 @@ export async function getProfile(uid: string): Promise<ProfileResponse | null> {
     availability: data.availability,
     workPreferences: data.workPreferences,
     location: data.location,
+    photoUrl: data.photoUrl ?? null,
+    resumeUrl: data.resumeUrl ?? null,
+    resumeName: data.resumeName ?? null,
+    certificates: data.certificates ?? [],
+    portfolioLinks: data.portfolioLinks ?? [],
     completeness: calculateCompleteness(data),
   };
 }
@@ -49,8 +54,13 @@ export async function createProfile(
   return {
     id: uid,
     ...data,
+    photoUrl: data.photoUrl ?? null,
+    resumeUrl: data.resumeUrl ?? null,
+    resumeName: data.resumeName ?? null,
+    certificates: data.certificates ?? [],
+    portfolioLinks: data.portfolioLinks ?? [],
     completeness: calculateCompleteness(data),
-  };
+  } as ProfileResponse;
 }
 
 export async function updateProfile(
@@ -84,6 +94,11 @@ export async function updateProfile(
     availability: data.availability,
     workPreferences: data.workPreferences,
     location: data.location,
+    photoUrl: data.photoUrl ?? null,
+    resumeUrl: data.resumeUrl ?? null,
+    resumeName: data.resumeName ?? null,
+    certificates: data.certificates ?? [],
+    portfolioLinks: data.portfolioLinks ?? [],
     completeness: calculateCompleteness(data),
   };
 }
@@ -96,13 +111,30 @@ export function calculateCompleteness(profile: {
   availability?: unknown[];
   workPreferences?: { jobCategories?: unknown[]; workTypes?: unknown[] };
   location?: { city?: string; state?: string; country?: string };
+  photoUrl?: string | null;
+  resumeUrl?: string | null;
+  certificates?: unknown[];
+  portfolioLinks?: unknown[];
 }): number {
   let score = 0;
 
   if (profile.personalInfo?.fullName && profile.personalInfo.fullName.trim().length > 0) {
-    score += 20;
+    score += 15;
   }
   if (profile.personalInfo?.bio && profile.personalInfo.bio.trim().length > 0) {
+    score += 5;
+  }
+
+  if (profile.photoUrl && profile.photoUrl.trim().length > 0) {
+    score += 5;
+  }
+  if (profile.resumeUrl && profile.resumeUrl.trim().length > 0) {
+    score += 5;
+  }
+  if (Array.isArray(profile.certificates) && profile.certificates.length > 0) {
+    score += 5;
+  }
+  if (Array.isArray(profile.portfolioLinks) && profile.portfolioLinks.length > 0) {
     score += 5;
   }
 
@@ -111,15 +143,15 @@ export function calculateCompleteness(profile: {
   }
 
   if (Array.isArray(profile.experience) && profile.experience.length > 0) {
-    score += 20;
-  }
-
-  if (Array.isArray(profile.education) && profile.education.length > 0) {
     score += 15;
   }
 
-  if (Array.isArray(profile.availability) && profile.availability.length > 0) {
+  if (Array.isArray(profile.education) && profile.education.length > 0) {
     score += 10;
+  }
+
+  if (Array.isArray(profile.availability) && profile.availability.length > 0) {
+    score += 5;
   }
 
   const wp = profile.workPreferences;

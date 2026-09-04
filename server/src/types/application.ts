@@ -12,6 +12,7 @@ export interface ApplicationDocument {
 export interface ApplicationResponse {
   id: string;
   jobId: string;
+  jobTitle?: string;
   jobSeekerId: string;
   vendorId: string;
   status: ApplicationStatus;

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { getCurrentIdToken } from "../../lib/auth";
 import { adminGetJobs, adminRemoveJob, adminRestoreJob } from "../../lib/api";
 import type { AdminJob } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function AdminJobsPage() {
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [moderationFilter, setModerationFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -47,7 +49,7 @@ export default function AdminJobsPage() {
       await adminRemoveJob(token, jobId, reason.trim());
       await loadJobs();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to remove job.");
+      setActionError(e instanceof Error ? e.message : "Failed to remove job.");
     }
   }
 
@@ -58,7 +60,7 @@ export default function AdminJobsPage() {
       await adminRestoreJob(token, jobId);
       await loadJobs();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to restore job.");
+      setActionError(e instanceof Error ? e.message : "Failed to restore job.");
     }
   }
 
@@ -98,9 +100,19 @@ export default function AdminJobsPage() {
         />
       </div>
 
+      {actionError && (
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="That action didn't go through">
+            {actionError}
+          </FriendlyAlert>
+        </div>
+      )}
+
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p className="text-red-800 text-sm">{error}</p>
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="We couldn't load the jobs">
+            {error}
+          </FriendlyAlert>
         </div>
       )}
 

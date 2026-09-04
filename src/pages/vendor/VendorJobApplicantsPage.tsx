@@ -10,6 +10,7 @@ import {
 } from "../../lib/api";
 import type { VendorApplicationWithJob, Job } from "../../types";
 import { APPLICATION_STATUS_LABELS } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "";
@@ -136,8 +137,10 @@ export default function VendorJobApplicantsPage() {
       </div>
 
       {actionError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {actionError}
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="We couldn't complete that action">
+            {actionError}
+          </FriendlyAlert>
         </div>
       )}
 
@@ -146,9 +149,9 @@ export default function VendorJobApplicantsPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
         </div>
       ) : error ? (
-        <div className="rounded-lg bg-red-50 p-6 text-sm text-red-700 border border-red-200">
+        <FriendlyAlert icon="error" title="We couldn't load the applicants">
           {error}
-        </div>
+        </FriendlyAlert>
       ) : applications.length === 0 ? (
         <div className="rounded-xl border border-neutral-200 bg-white p-10 text-center shadow-sm">
           <p className="text-neutral-500">No applications yet for this job.</p>

@@ -39,6 +39,11 @@ export default function JobSeekerProfileEditPage() {
     availability: profile.availability,
     workPreferences: profile.workPreferences,
     location: profile.location,
+    photoUrl: profile.photoUrl,
+    resumeUrl: profile.resumeUrl,
+    resumeName: profile.resumeName,
+    certificates: profile.certificates,
+    portfolioLinks: profile.portfolioLinks,
   };
 
   async function handleSave(data: Omit<Profile, "id" | "completeness">) {

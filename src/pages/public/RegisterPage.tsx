@@ -99,7 +99,7 @@ export default function RegisterPage() {
           className="mt-8 rounded-xl border border-neutral-200 bg-white p-8 shadow-sm"
         >
           <div className="flex flex-col gap-4">
-            {error && <FormError>{error}</FormError>}
+            {error && <FormError title="We couldn't create your account">{error}</FormError>}
 
             <FormField
               type="text"

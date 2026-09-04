@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useVendorProfile } from "../../context/useVendorProfile";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 function StatusIcon({ status }: { status: string }) {
   if (status === "approved") {
@@ -131,19 +132,29 @@ export default function VendorVerifyPage() {
                 Verification rejected
               </h2>
               {profile?.verification.rejectionReason && (
-                <p className="mb-4 text-sm text-red-600 bg-red-50 rounded-lg p-3">
-                  Reason: {profile.verification.rejectionReason}
-                </p>
+                <div className="mb-4">
+                  <FriendlyAlert icon="error" title="Why it was rejected">
+                    {profile.verification.rejectionReason}
+                  </FriendlyAlert>
+                </div>
               )}
               <p className="text-neutral-500 mb-6">
                 Your business verification could not be approved. Please check
                 your information and resubmit.
               </p>
-              {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+              {error && (
+                <div className="mb-4">
+                  <FriendlyAlert icon="error" title="We couldn't resubmit">
+                    {error}
+                  </FriendlyAlert>
+                </div>
+              )}
               {success && (
-                <p className="mb-4 text-sm text-green-600">
-                  Verification resubmitted successfully.
-                </p>
+                <div className="mb-4">
+                  <FriendlyAlert icon="success" title="Resubmitted">
+                    Your verification has been resubmitted for review.
+                  </FriendlyAlert>
+                </div>
               )}
               <button
                 type="button"
@@ -175,11 +186,19 @@ export default function VendorVerifyPage() {
                   <li>• A verifiable contact email or phone</li>
                 </ul>
               </div>
-              {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+              {error && (
+                <div className="mb-4">
+                  <FriendlyAlert icon="error" title="We couldn't submit">
+                    {error}
+                  </FriendlyAlert>
+                </div>
+              )}
               {success && (
-                <p className="mb-4 text-sm text-green-600">
-                  Verification submitted! You'll be notified once it's reviewed.
-                </p>
+                <div className="mb-4">
+                  <FriendlyAlert icon="success" title="Submitted">
+                    You'll be notified once your verification is reviewed.
+                  </FriendlyAlert>
+                </div>
               )}
               <button
                 type="button"

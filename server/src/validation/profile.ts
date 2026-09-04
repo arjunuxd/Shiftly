@@ -166,6 +166,71 @@ function validateAvailabilityDay(day: unknown, index: number): ValidationError |
   return null;
 }
 
+function validateCertificate(cert: unknown, index: number): ValidationError | null {
+  if (!cert || typeof cert !== "object") {
+    return { field: `certificates[${index}]`, message: "Each certificate must be an object." };
+  }
+  const c = cert as Record<string, unknown>;
+
+  const nameErr = validateRequiredString(c.name, `certificates[${index}].name`, 100);
+  if (nameErr) return nameErr;
+
+  const issuerErr = validateOptionalString(c.issuer, `certificates[${index}].issuer`, 100);
+  if (issuerErr) return issuerErr;
+
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  if (c.issueDate && typeof c.issueDate === "string" && !datePattern.test(c.issueDate)) {
+    return { field: `certificates[${index}].issueDate`, message: "Issue date must be in YYYY-MM-DD format." };
+  }
+  if (c.expiryDate && typeof c.expiryDate === "string" && !datePattern.test(c.expiryDate)) {
+    return { field: `certificates[${index}].expiryDate`, message: "Expiry date must be in YYYY-MM-DD format." };
+  }
+
+  const urlErr = validateOptionalUrl(c.credentialUrl, `certificates[${index}].credentialUrl`);
+  if (urlErr) return urlErr;
+
+  return null;
+}
+
+function validatePortfolioLink(link: unknown, index: number): ValidationError | null {
+  if (!link || typeof link !== "object") {
+    return { field: `portfolioLinks[${index}]`, message: "Each portfolio link must be an object." };
+  }
+  const p = link as Record<string, unknown>;
+
+  const titleErr = validateOptionalString(p.title, `portfolioLinks[${index}].title`, 100);
+  if (titleErr) return titleErr;
+
+  const urlErr = validateOptionalUrl(p.url, `portfolioLinks[${index}].url`);
+  if (urlErr) return urlErr;
+
+  const descErr = validateOptionalString(p.description, `portfolioLinks[${index}].description`, 500);
+  if (descErr) return descErr;
+
+  return null;
+}
+
+function validateOptionalUrl(value: unknown, fieldName: string): ValidationError | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string") {
+    return { field: fieldName, message: `${fieldName} must be a string.` };
+  }
+  if (value.length > 2048) {
+    return { field: fieldName, message: `${fieldName} must be at most 2048 characters.` };
+  }
+  try {
+    const parsed = new URL(value);
+    if (!["http:", "https:", "gs:"].includes(parsed.protocol)) {
+      return { field: fieldName, message: `${fieldName} must be a valid http(s) or storage URL.` };
+    }
+  } catch {
+    return { field: fieldName, message: `${fieldName} must be a valid URL.` };
+  }
+  return null;
+}
+
 export function validateProfile(body: unknown): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -296,6 +361,47 @@ export function validateProfile(body: unknown): ValidationError[] {
       if (stateErr) errors.push(stateErr);
       const countryErr = validateRequiredString(loc.country, "location.country", 100);
       if (countryErr) errors.push(countryErr);
+    }
+  }
+
+  if (b.photoUrl !== undefined) {
+    const err = validateOptionalUrl(b.photoUrl, "photoUrl");
+    if (err) errors.push(err);
+  }
+
+  if (b.resumeUrl !== undefined) {
+    const err = validateOptionalUrl(b.resumeUrl, "resumeUrl");
+    if (err) errors.push(err);
+  }
+
+  if (b.resumeName !== undefined) {
+    const err = validateOptionalString(b.resumeName, "resumeName", 120);
+    if (err) errors.push(err);
+  }
+
+  if (b.certificates !== undefined) {
+    if (!Array.isArray(b.certificates)) {
+      errors.push({ field: "certificates", message: "Certificates must be an array." });
+    } else if (b.certificates.length > 10) {
+      errors.push({ field: "certificates", message: "Certificates must contain at most 10 items." });
+    } else {
+      for (let i = 0; i < b.certificates.length; i++) {
+        const err = validateCertificate(b.certificates[i], i);
+        if (err) errors.push(err);
+      }
+    }
+  }
+
+  if (b.portfolioLinks !== undefined) {
+    if (!Array.isArray(b.portfolioLinks)) {
+      errors.push({ field: "portfolioLinks", message: "Portfolio links must be an array." });
+    } else if (b.portfolioLinks.length > 10) {
+      errors.push({ field: "portfolioLinks", message: "Portfolio links must contain at most 10 items." });
+    } else {
+      for (let i = 0; i < b.portfolioLinks.length; i++) {
+        const err = validatePortfolioLink(b.portfolioLinks[i], i);
+        if (err) errors.push(err);
+      }
     }
   }
 

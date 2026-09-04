@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getCurrentIdToken } from "../../lib/auth";
 import { adminGetOverview } from "../../lib/api";
 import type { AdminPlatformOverview } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function SuperadminDashboard() {
   const [overview, setOverview] = useState<AdminPlatformOverview | null>(null);
@@ -33,9 +34,9 @@ export default function SuperadminDashboard() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-800">{error}</p>
-      </div>
+      <FriendlyAlert icon="error" title="We couldn't load the overview">
+        {error}
+      </FriendlyAlert>
     );
   }
 

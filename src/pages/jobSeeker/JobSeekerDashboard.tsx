@@ -5,6 +5,8 @@ import { useProfile } from "../../context/useProfile";
 import { getVerification, discoverJobs, getMyApplications, getConversations } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import { VerificationBadge } from "../../components/ui/VerificationBadge";
+import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
+import ProfileCompletionCard from "../../components/profile/ProfileCompletionCard";
 import type { VerificationRecord, PublicJob, Application, Conversation } from "../../types";
 
 function CompletenessBar({ value }: { value: number }) {
@@ -97,8 +99,9 @@ export default function JobSeekerDashboard() {
   const verificationStatus = verification?.status ?? "unverified";
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-neutral-900 mb-2">
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <JobSeekerNav />
+      <h1 className="mt-6 text-3xl font-bold text-neutral-900 mb-2">
         Job Seeker Dashboard
       </h1>
       <p className="text-neutral-500 mb-8">
@@ -112,14 +115,22 @@ export default function JobSeekerDashboard() {
             <div className="flex flex-col gap-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-lg font-bold text-primary-700">
-                    {profile.personalInfo.fullName
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2)}
-                  </div>
+                  {profile.photoUrl ? (
+                    <img
+                      src={profile.photoUrl}
+                      alt=""
+                      className="h-12 w-12 shrink-0 rounded-full object-cover border border-neutral-200"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-lg font-bold text-primary-700">
+                      {profile.personalInfo.fullName
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2)}
+                    </div>
+                  )}
                   <div>
                     <p className="font-semibold text-neutral-900">
                       {profile.personalInfo.fullName}
@@ -134,12 +145,18 @@ export default function JobSeekerDashboard() {
 
               <CompletenessBar value={profile.completeness} />
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
                   to="/job-seeker/profile"
                   className="inline-flex items-center justify-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
                 >
                   View Profile
+                </Link>
+                <Link
+                  to="/job-seeker/profile/preview"
+                  className="inline-flex items-center justify-center rounded-lg border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+                >
+                  Employer Preview
                 </Link>
                 <Link
                   to="/job-seeker/profile/edit"
@@ -177,8 +194,11 @@ export default function JobSeekerDashboard() {
           )}
         </div>
 
+        {/* Profile Completion */}
+        {profile && profile.completeness < 100 && <ProfileCompletionCard />}
+
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Link
             to="/jobs"
             className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-primary-200 transition-all flex items-center gap-4"
@@ -245,7 +265,7 @@ export default function JobSeekerDashboard() {
                       to={`/jobs/${app.jobId}`}
                       className="font-medium text-neutral-900 hover:text-primary-600 transition-colors truncate"
                     >
-                      Job #{app.jobId.slice(0, 8)}
+                      {app.jobTitle ?? `Job #${app.jobId.slice(0, 8)}`}
                     </Link>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">

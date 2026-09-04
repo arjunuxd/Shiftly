@@ -77,7 +77,7 @@ export default function ForgotPasswordPage() {
           className="mt-8 rounded-xl border border-neutral-200 bg-white p-8 shadow-sm"
         >
           <div className="flex flex-col gap-4">
-            {error && <FormError>{error}</FormError>}
+            {error && <FormError title="We couldn't send a reset link">{error}</FormError>}
             <FormField
               type="email"
               label="Email address"

@@ -73,16 +73,87 @@ export default function FormField({
   );
 }
 
-export function FormError({ children }: { children: ReactNode }) {
+export function FormError({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title?: string;
+}) {
   if (!children) {
     return null;
   }
   return (
-    <div
-      role="alert"
-      className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-    >
+    <FriendlyAlert icon="error" title={title ?? "Something went wrong"}>
       {children}
+    </FriendlyAlert>
+  );
+}
+
+type AlertKind = "error" | "success" | "info";
+
+export function FriendlyAlert({
+  children,
+  title,
+  icon,
+}: {
+  children: ReactNode;
+  title: string;
+  icon: AlertKind;
+}) {
+  const styles: Record<
+    AlertKind,
+    { wrap: string; icon: string; title: string; body: string }
+  > = {
+    error: {
+      wrap: "border-red-200 bg-red-50",
+      icon: "bg-red-100 text-red-600",
+      title: "text-red-800",
+      body: "text-red-700",
+    },
+    success: {
+      wrap: "border-accent-200 bg-accent-50",
+      icon: "bg-accent-100 text-accent-700",
+      title: "text-neutral-900",
+      body: "text-neutral-600",
+    },
+    info: {
+      wrap: "border-primary-200 bg-primary-50",
+      icon: "bg-primary-100 text-primary-700",
+      title: "text-neutral-900",
+      body: "text-neutral-600",
+    },
+  };
+  const s = styles[icon];
+
+  return (
+    <div
+      role={icon === "error" ? "alert" : "status"}
+      className={`flex items-start gap-3 rounded-xl border p-4 ${s.wrap}`}
+    >
+      <span
+        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${s.icon}`}
+      >
+        {icon === "error" ? (
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+        ) : icon === "success" ? (
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+          </svg>
+        )}
+      </span>
+      <div className="min-w-0">
+        <p className={`text-sm font-semibold ${s.title}`}>{title}</p>
+        <div className={`mt-0.5 text-sm leading-relaxed ${s.body}`}>
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

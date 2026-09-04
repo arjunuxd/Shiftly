@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
 import type { FormEvent, ChangeEvent } from "react";
-import FormField, { FormError, SubmitButton } from "../ui/FormField";
+import FormField, { FormError, SubmitButton, FriendlyAlert } from "../ui/FormField";
 import type { Profile } from "../../types";
+import {
+  uploadProfilePhoto,
+  deleteProfilePhoto,
+  uploadResume,
+  deleteResume,
+  uploadCertificate,
+} from "../../lib/uploads";
+import { useAuth } from "../../context/useAuth";
 
 const JOB_CATEGORY_OPTIONS = [
   "hospitality",
@@ -128,10 +136,14 @@ export default function ProfileForm({
   onSubmit,
   onCancel,
 }: ProfileFormProps) {
+  const { currentUser } = useAuth();
   const [form, setForm] = useState(initialData);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [certUploadingId, setCertUploadingId] = useState<string | null>(null);
 
   useEffect(() => {
     setForm(initialData);
@@ -260,6 +272,146 @@ export default function ProfileForm({
     }));
   }
 
+  async function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+    setPhotoUploading(true);
+    setError(null);
+    try {
+      const url = await uploadProfilePhoto(currentUser.uid, file);
+      setForm((prev) => ({ ...prev, photoUrl: url }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to upload photo.");
+    } finally {
+      setPhotoUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handlePhotoRemove() {
+    if (!currentUser) return;
+    setPhotoUploading(true);
+    try {
+      await deleteProfilePhoto(currentUser.uid);
+    } catch {
+      // ignore storage cleanup errors
+    }
+    setForm((prev) => ({ ...prev, photoUrl: null }));
+    setPhotoUploading(false);
+  }
+
+  async function handleResumeChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+    setResumeUploading(true);
+    setError(null);
+    try {
+      const { url, name } = await uploadResume(currentUser.uid, file);
+      setForm((prev) => ({ ...prev, resumeUrl: url, resumeName: name }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to upload resume.");
+    } finally {
+      setResumeUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleResumeRemove() {
+    if (!currentUser) return;
+    setResumeUploading(true);
+    try {
+      await deleteResume(currentUser.uid);
+    } catch {
+      // ignore storage cleanup errors
+    }
+    setForm((prev) => ({ ...prev, resumeUrl: null, resumeName: null }));
+    setResumeUploading(false);
+  }
+
+  function addCertificate() {
+    setForm((prev) => ({
+      ...prev,
+      certificates: [
+        ...prev.certificates,
+        {
+          id: newId(),
+          name: "",
+          issuer: "",
+          issueDate: "",
+          expiryDate: "",
+          credentialUrl: "",
+        },
+      ],
+    }));
+  }
+
+  function updateCertificate(index: number, field: string, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      certificates: prev.certificates.map((c, i) =>
+        i === index ? { ...c, [field]: value } : c,
+      ),
+    }));
+  }
+
+  async function handleCertificateFile(
+    index: number,
+    e: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    const cert = form.certificates[index];
+    if (!file || !currentUser || !cert) return;
+    setCertUploadingId(cert.id);
+    setError(null);
+    try {
+      const url = await uploadCertificate(currentUser.uid, cert.id, file);
+      setForm((prev) => ({
+        ...prev,
+        certificates: prev.certificates.map((c, i) =>
+          i === index ? { ...c, credentialUrl: url } : c,
+        ),
+      }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to upload certificate.");
+    } finally {
+      setCertUploadingId(null);
+      e.target.value = "";
+    }
+  }
+
+  function removeCertificate(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      certificates: prev.certificates.filter((_, i) => i !== index),
+    }));
+  }
+
+  function addPortfolioLink() {
+    setForm((prev) => ({
+      ...prev,
+      portfolioLinks: [
+        ...prev.portfolioLinks,
+        { id: newId(), title: "", url: "", description: "" },
+      ],
+    }));
+  }
+
+  function updatePortfolioLink(index: number, field: string, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      portfolioLinks: prev.portfolioLinks.map((p, i) =>
+        i === index ? { ...p, [field]: value } : p,
+      ),
+    }));
+  }
+
+  function removePortfolioLink(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      portfolioLinks: prev.portfolioLinks.filter((_, i) => i !== index),
+    }));
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -284,11 +436,11 @@ export default function ProfileForm({
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-8">
-      {error && <FormError>{error}</FormError>}
+      {error && <FormError title="We couldn't save your profile">{error}</FormError>}
       {success && (
-        <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200">
-          Profile saved successfully.
-        </div>
+        <FriendlyAlert icon="success" title="Profile saved">
+          Your changes are live.
+        </FriendlyAlert>
       )}
 
       {/* Personal Information */}
@@ -319,6 +471,239 @@ export default function ProfileForm({
             onChange={(e: ChangeEvent<HTMLInputElement>) => setPersonalInfo("phone", e.target.value)}
             placeholder="+1 234 567 8900"
           />
+        </div>
+      </section>
+
+      {/* Profile Photo */}
+      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <SectionHeading
+          title="Profile Photo"
+          description="A clear photo helps employers recognise you. JPEG, PNG, or WebP, max 500 KB."
+        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-50">
+            {form.photoUrl ? (
+              <img
+                src={form.photoUrl}
+                alt="Profile"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-neutral-300 text-2xl font-bold">?</span>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 self-start rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(e) => void handlePhotoChange(e)}
+                disabled={photoUploading}
+              />
+              {photoUploading ? "Uploading..." : form.photoUrl ? "Change photo" : "Upload photo"}
+            </label>
+            {form.photoUrl && (
+              <button
+                type="button"
+                onClick={() => void handlePhotoRemove()}
+                className="self-start text-sm text-red-600 hover:text-red-700 transition-colors"
+              >
+                Remove photo
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Resume */}
+      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <SectionHeading
+          title="Resume"
+          description="PDF only, max 200 KB. Employers can view your resume when you apply."
+        />
+        <div className="flex flex-col gap-2">
+          {form.resumeUrl ? (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <span className="text-sm font-medium text-neutral-700">
+                {form.resumeName ?? "Resume uploaded"}
+              </span>
+              <div className="flex gap-3">
+                <a
+                  href={form.resumeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary-600 hover:text-primary-700"
+                >
+                  View resume
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void handleResumeRemove()}
+                  className="text-sm text-red-600 hover:text-red-700"
+                  disabled={resumeUploading}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className="inline-flex cursor-pointer self-start items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50">
+              <input
+                type="file"
+                accept="application/pdf"
+                className="sr-only"
+                onChange={(e) => void handleResumeChange(e)}
+                disabled={resumeUploading}
+              />
+              {resumeUploading ? "Uploading..." : "Upload resume"}
+            </label>
+          )}
+          <p className="text-xs text-neutral-400">
+            Your resume is only shown to employers after you apply for a job.
+          </p>
+        </div>
+      </section>
+
+      {/* Certificates */}
+      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <SectionHeading
+          title="Certificates"
+          description="Add certifications relevant to the work you're looking for. Each can include a PDF file."
+        />
+        <div className="flex flex-col gap-4">
+          {form.certificates.map((cert, i) => (
+            <div
+              key={cert.id}
+              className="relative rounded-lg border border-neutral-100 bg-neutral-50 p-4"
+            >
+              <button
+                type="button"
+                onClick={() => removeCertificate(i)}
+                className="absolute right-3 top-3 rounded p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                aria-label={`Remove certificate ${i + 1}`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="flex flex-col gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    label="Certificate name"
+                    value={cert.name}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => updateCertificate(i, "name", e.target.value)}
+                    placeholder="e.g. Food Safety Certification"
+                  />
+                  <FormField
+                    label="Issued by"
+                    value={cert.issuer}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => updateCertificate(i, "issuer", e.target.value)}
+                    placeholder="e.g. ServSafe"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    label="Issue date"
+                    type="date"
+                    value={cert.issueDate}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => updateCertificate(i, "issueDate", e.target.value)}
+                  />
+                  <FormField
+                    label="Expiry date (optional)"
+                    type="date"
+                    value={cert.expiryDate}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => updateCertificate(i, "expiryDate", e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-50">
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="sr-only"
+                      onChange={(e) => void handleCertificateFile(i, e)}
+                      disabled={certUploadingId === cert.id}
+                    />
+                    {certUploadingId === cert.id
+                      ? "Uploading..."
+                      : cert.credentialUrl
+                        ? "Replace file"
+                        : "Upload PDF"}
+                  </label>
+                  {cert.credentialUrl && (
+                    <span className="text-xs text-accent-600 font-medium">
+                      PDF attached
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addCertificate}
+            className="self-start rounded-lg border border-dashed border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
+          >
+            + Add certificate
+          </button>
+        </div>
+      </section>
+
+      {/* Portfolio */}
+      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <SectionHeading
+          title="Portfolio"
+          description="Link to work samples, profiles, or personal projects."
+        />
+        <div className="flex flex-col gap-4">
+          {form.portfolioLinks.map((item, i) => (
+            <div
+              key={item.id}
+              className="relative rounded-lg border border-neutral-100 bg-neutral-50 p-4"
+            >
+              <button
+                type="button"
+                onClick={() => removePortfolioLink(i)}
+                className="absolute right-3 top-3 rounded p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                aria-label={`Remove portfolio link ${i + 1}`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="flex flex-col gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    label="Title"
+                    value={item.title}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => updatePortfolioLink(i, "title", e.target.value)}
+                    placeholder="e.g. Personal Website"
+                  />
+                  <FormField
+                    label="URL"
+                    type="url"
+                    value={item.url}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => updatePortfolioLink(i, "url", e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+                <FormField
+                  label="Description (optional)"
+                  value={item.description}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => updatePortfolioLink(i, "description", e.target.value)}
+                  placeholder="What this link shows"
+                />
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addPortfolioLink}
+            className="self-start rounded-lg border border-dashed border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
+          >
+            + Add link
+          </button>
         </div>
       </section>
 

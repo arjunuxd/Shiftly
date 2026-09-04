@@ -7,7 +7,7 @@ import {
 } from "../../lib/auth";
 import { getAuthErrorMessage } from "../../lib/authErrors";
 import { getRoleHomePath } from "../../lib/roles";
-import { FormError } from "../../components/ui/FormField";
+import { FormError, FriendlyAlert } from "../../components/ui/FormField";
 
 export default function VerifyEmailPage() {
   const { currentUser, emailVerified, resolveRole, signOut } = useAuth();
@@ -85,11 +85,12 @@ export default function VerifyEmailPage() {
         </p>
 
         <div className="mt-8 flex flex-col gap-3">
-          {error && <FormError>{error}</FormError>}
+          {error && <FormError title="We couldn't verify your email">{error}</FormError>}
           {resent && (
-            <p role="status" className="text-sm text-accent-600">
-              Verification email sent.
-            </p>
+            <FriendlyAlert icon="success" title="Verification email sent">
+              Check your inbox, including spam, and click the link to complete
+              verification.
+            </FriendlyAlert>
           )}
 
           <button

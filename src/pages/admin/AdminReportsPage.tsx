@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { getCurrentIdToken } from "../../lib/auth";
 import { adminGetReports, adminResolveReport, adminDismissReport } from "../../lib/api";
 import type { AdminReport } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("open");
   const [offset, setOffset] = useState(0);
   const limit = 20;
@@ -42,7 +44,7 @@ export default function AdminReportsPage() {
       await adminResolveReport(token, reportId);
       await loadReports();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to resolve report.");
+      setActionError(e instanceof Error ? e.message : "Failed to resolve report.");
     }
   }
 
@@ -53,7 +55,7 @@ export default function AdminReportsPage() {
       await adminDismissReport(token, reportId);
       await loadReports();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to dismiss report.");
+      setActionError(e instanceof Error ? e.message : "Failed to dismiss report.");
     }
   }
 
@@ -76,9 +78,19 @@ export default function AdminReportsPage() {
         </select>
       </div>
 
+      {actionError && (
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="That action didn't go through">
+            {actionError}
+          </FriendlyAlert>
+        </div>
+      )}
+
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p className="text-red-800 text-sm">{error}</p>
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="We couldn't load the reports">
+            {error}
+          </FriendlyAlert>
         </div>
       )}
 

@@ -9,6 +9,7 @@ import {
   adminRejectVendorVerification,
 } from "../../lib/api";
 import type { AdminVerification, AdminVendorVerification } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 type Tab = "job-seekers" | "vendors";
 
@@ -19,6 +20,7 @@ export default function AdminVerificationsPage() {
   const [vendorVerifications, setVendorVerifications] = useState<AdminVendorVerification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadVerifications = useCallback(async () => {
     setLoading(true);
@@ -50,7 +52,7 @@ export default function AdminVerificationsPage() {
       await adminApproveVerification(token, userId);
       await loadVerifications();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to approve.");
+      setActionError(e instanceof Error ? e.message : "Failed to approve.");
     }
   }
 
@@ -62,7 +64,7 @@ export default function AdminVerificationsPage() {
       await adminRejectVerification(token, userId, reason.trim());
       await loadVerifications();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to reject.");
+      setActionError(e instanceof Error ? e.message : "Failed to reject.");
     }
   }
 
@@ -73,7 +75,7 @@ export default function AdminVerificationsPage() {
       await adminApproveVendorVerification(token, uid);
       await loadVerifications();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to approve.");
+      setActionError(e instanceof Error ? e.message : "Failed to approve.");
     }
   }
 
@@ -85,7 +87,7 @@ export default function AdminVerificationsPage() {
       await adminRejectVendorVerification(token, uid, reason.trim());
       await loadVerifications();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to reject.");
+      setActionError(e instanceof Error ? e.message : "Failed to reject.");
     }
   }
 
@@ -125,9 +127,19 @@ export default function AdminVerificationsPage() {
         </select>
       </div>
 
+      {actionError && (
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="That action didn't go through">
+            {actionError}
+          </FriendlyAlert>
+        </div>
+      )}
+
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p className="text-red-800 text-sm">{error}</p>
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="We couldn't load the verifications">
+            {error}
+          </FriendlyAlert>
         </div>
       )}
 

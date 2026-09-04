@@ -126,9 +126,25 @@ export async function getApplicationsForJobSeeker(
     .orderBy("createdAt", "desc")
     .get();
 
-  return snapshot.docs.map((doc) =>
+  const apps = snapshot.docs.map((doc) =>
     serializeApplication(doc.id, doc.data() as ApplicationDocument),
   );
+
+  const jobIds = [...new Set(apps.map((a) => a.jobId))];
+  const jobs = await Promise.all(
+    jobIds.map(async (jobId) => {
+      const job = await getJob(jobId);
+      return job ? { jobId, title: job.title } : null;
+    }),
+  );
+  const titleByJobId = new Map(
+    jobs.filter(Boolean).map((j) => [j!.jobId, j!.title]),
+  );
+
+  return apps.map((app) => ({
+    ...app,
+    jobTitle: titleByJobId.get(app.jobId),
+  }));
 }
 
 export async function getApplication(

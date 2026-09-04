@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import NotificationList from "../../components/notifications/NotificationList";
+import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
 import type { AppNotification } from "../../types";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -92,8 +94,9 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+      <JobSeekerNav />
+      <div className="mt-6 mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-neutral-900 mb-1">Notifications</h1>
           <p className="text-neutral-500">
@@ -114,7 +117,7 @@ export default function NotificationsPage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg bg-red-50 p-6 text-sm text-red-700 border border-red-200">
+        <FriendlyAlert icon="error" title="We couldn't load your notifications">
           {error}
           <button
             type="button"
@@ -122,11 +125,11 @@ export default function NotificationsPage() {
               setLoading(true);
               getCurrentIdToken().then((t) => fetchNotifications(t)).catch(() => setLoading(false));
             }}
-            className="block mt-3 text-primary-600 font-medium"
+            className="mt-3 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 transition-colors"
           >
             Try Again
           </button>
-        </div>
+        </FriendlyAlert>
       ) : (
         <>
           <NotificationList notifications={notifications} onRead={handleRead} />

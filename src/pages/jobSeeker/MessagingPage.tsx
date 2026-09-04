@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { getCurrentIdToken } from "../../lib/auth";
 import { getConversations, sendConversationMessage } from "../../lib/api";
 import { db } from "../../lib/firestore";
@@ -11,6 +10,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { useAuth } from "../../context/useAuth";
+import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
 import type { Conversation, Message } from "../../types";
 
 function formatTime(dateStr: string | null): string {
@@ -216,15 +216,10 @@ export default function MessagingPage() {
   }, [load]);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="mb-6">
-        <Link
-          to="/job-seeker"
-          className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
-        >
-          &larr; Dashboard
-        </Link>
-        <h1 className="mt-2 text-3xl font-bold text-neutral-900">Messages</h1>
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <JobSeekerNav />
+      <div className="mt-6 mb-6">
+        <h1 className="text-3xl font-bold text-neutral-900">Messages</h1>
       </div>
 
       {loading ? (

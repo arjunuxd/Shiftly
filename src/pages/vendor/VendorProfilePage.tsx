@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useVendorProfile } from "../../context/useVendorProfile";
 import VendorProfileDisplay from "../../components/vendor/VendorProfileDisplay";
+import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function VendorProfilePage() {
   const { profile, profileLoading, profileError, fetchProfile } =
@@ -29,9 +30,9 @@ export default function VendorProfilePage() {
   if (profileError) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="rounded-lg bg-red-50 p-6 text-sm text-red-700 border border-red-200">
+        <FriendlyAlert icon="error" title="We couldn't load your profile">
           {profileError}
-        </div>
+        </FriendlyAlert>
       </div>
     );
   }
