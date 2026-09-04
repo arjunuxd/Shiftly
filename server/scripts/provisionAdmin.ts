@@ -7,7 +7,7 @@
  *
  * Usage (from server/):
  *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json \
- *   node --import tsx scripts/provisionAdmin.ts <email>
+ *   npx tsx scripts/provisionAdmin.ts <email>
  *
  * Security notes:
  *  - Requires the Firebase Admin service-account (server-only).
@@ -17,7 +17,9 @@
 
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
-import admin from "firebase-admin";
+import { cert, initializeApp, getApps } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 
 const email = process.argv[2];
 
@@ -34,21 +36,23 @@ if (!serviceAccountPath || !existsSync(resolve(serviceAccountPath))) {
   process.exit(1);
 }
 
-if (admin.apps.length === 0) {
-  admin.initializeApp({
-    credential: admin.credential.cert(resolve(serviceAccountPath)),
+if (getApps().length === 0) {
+  initializeApp({
+    credential: cert(resolve(serviceAccountPath)),
   });
 }
 
 async function main(): Promise<void> {
-  const existing = await admin.auth().getUserByEmail(email).catch(() => null);
+  const auth = getAuth();
+  const db = getFirestore();
+
+  const existing = await auth.getUserByEmail(email).catch(() => null);
 
   let uid: string;
   if (existing) {
     uid = existing.uid;
   } else {
-    const created = await admin
-      .auth()
+    const created = await auth
       .createUser({ email })
       .catch((createError: unknown) => {
         if (
@@ -57,18 +61,17 @@ async function main(): Promise<void> {
           "code" in createError &&
           (createError as { code: string }).code === "auth/email-already-exists"
         ) {
-          return admin.auth().getUserByEmail(email);
+          return auth.getUserByEmail(email);
         }
         throw createError;
       });
     uid = created.uid;
   }
 
-  await admin.auth().setCustomUserClaims(uid, { role: "superadmin" });
+  await auth.setCustomUserClaims(uid, { role: "superadmin" });
 
-  const now = admin.firestore.FieldValue.serverTimestamp();
-  await admin
-    .firestore()
+  const now = FieldValue.serverTimestamp();
+  await db
     .collection("users")
     .doc(uid)
     .set(
