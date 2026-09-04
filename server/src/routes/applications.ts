@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireAccountActive } from "../middleware/auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
@@ -13,8 +13,15 @@ import {
   validateApplicationBody,
   validateWithdrawBody,
 } from "../validation/application.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 
 const router = Router();
+
+const applicationCreateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 20,
+  keyPrefix: "application-create",
+});
 
 router.use(requireAuth, requireRole("job_seeker"));
 
@@ -29,6 +36,8 @@ router.get(
 
 router.post(
   "/",
+  requireAccountActive,
+  applicationCreateLimit,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
 
@@ -61,6 +70,7 @@ router.get(
 
 router.patch(
   "/:applicationId/withdraw",
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
     const applicationId = String(req.params.applicationId);

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
+import AdminLayout from "../layouts/AdminLayout";
 import HomePage from "../pages/public/HomePage";
 import LoginPage from "../pages/public/LoginPage";
 import RegisterPage from "../pages/public/RegisterPage";
@@ -15,6 +16,7 @@ import JobDiscoveryPage from "../pages/jobSeeker/JobDiscoveryPage";
 import JobDetailPage from "../pages/jobSeeker/JobDetailPage";
 import ApplicationsPage from "../pages/jobSeeker/ApplicationsPage";
 import MessagingPage from "../pages/jobSeeker/MessagingPage";
+import NotificationsPage from "../pages/jobSeeker/NotificationsPage";
 import VendorDashboard from "../pages/vendor/VendorDashboard";
 import VendorProfilePage from "../pages/vendor/VendorProfilePage";
 import VendorProfileCreatePage from "../pages/vendor/VendorProfileCreatePage";
@@ -25,7 +27,12 @@ import VendorJobCreatePage from "../pages/vendor/VendorJobCreatePage";
 import VendorJobEditPage from "../pages/vendor/VendorJobEditPage";
 import VendorJobApplicantsPage from "../pages/vendor/VendorJobApplicantsPage";
 import VendorMessagingPage from "../pages/vendor/VendorMessagingPage";
+import VendorNotificationsPage from "../pages/vendor/VendorNotificationsPage";
 import SuperadminDashboard from "../pages/admin/SuperadminDashboard";
+import AdminUsersPage from "../pages/admin/AdminUsersPage";
+import AdminJobsPage from "../pages/admin/AdminJobsPage";
+import AdminVerificationsPage from "../pages/admin/AdminVerificationsPage";
+import AdminReportsPage from "../pages/admin/AdminReportsPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import { RoleRoute } from "../components/guards/RouteGuards";
 import { ProfileProvider } from "../context/ProfileContext";
@@ -43,6 +50,14 @@ function VendorLayout({ children }: { children: ReactNode }) {
   return (
     <RoleRoute role="vendor">
       <VendorProfileProvider>{children}</VendorProfileProvider>
+    </RoleRoute>
+  );
+}
+
+function AdminRoute({ children }: { children: ReactNode }) {
+  return (
+    <RoleRoute role="superadmin">
+      <AdminLayout>{children}</AdminLayout>
     </RoleRoute>
   );
 }
@@ -88,6 +103,10 @@ export const router = createBrowserRouter([
         element: <JobSeekerLayout><MessagingPage /></JobSeekerLayout>,
       },
       {
+        path: "job-seeker/notifications",
+        element: <JobSeekerLayout><NotificationsPage /></JobSeekerLayout>,
+      },
+      {
         path: "vendor",
         element: <VendorLayout><VendorDashboard /></VendorLayout>,
       },
@@ -128,12 +147,28 @@ export const router = createBrowserRouter([
         element: <VendorLayout><VendorMessagingPage /></VendorLayout>,
       },
       {
+        path: "vendor/notifications",
+        element: <VendorLayout><VendorNotificationsPage /></VendorLayout>,
+      },
+      {
         path: "admin",
-        element: (
-          <RoleRoute role="superadmin">
-            <SuperadminDashboard />
-          </RoleRoute>
-        ),
+        element: <AdminRoute><SuperadminDashboard /></AdminRoute>,
+      },
+      {
+        path: "admin/users",
+        element: <AdminRoute><AdminUsersPage /></AdminRoute>,
+      },
+      {
+        path: "admin/jobs",
+        element: <AdminRoute><AdminJobsPage /></AdminRoute>,
+      },
+      {
+        path: "admin/verifications",
+        element: <AdminRoute><AdminVerificationsPage /></AdminRoute>,
+      },
+      {
+        path: "admin/reports",
+        element: <AdminRoute><AdminReportsPage /></AdminRoute>,
       },
       { path: "*", element: <NotFoundPage /> },
     ],

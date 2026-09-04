@@ -4,12 +4,15 @@ import {
   errorHandler,
   notFoundHandler,
 } from "./middleware/errorHandler.js";
+import { rateLimit } from "./middleware/rateLimit.js";
 import routes from "./routes/index.js";
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: "50kb" }));
 app.use(corsMiddleware);
+
+app.use("/api", rateLimit({ windowMs: 60_000, max: 300, keyPrefix: "global" }));
 
 app.use("/api", routes);
 

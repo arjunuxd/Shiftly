@@ -1,5 +1,6 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "../config/firebaseAdmin.js";
+import { AppError } from "../middleware/errorHandler.js";
 import type {
   JobDocument,
   JobResponse,
@@ -70,10 +71,12 @@ export async function createJob(
     status: JobStatus;
     publishedAt: null;
     closedAt: null;
+    moderationStatus: "normal";
   } = {
     vendorId,
     ...data,
     status: "draft" as JobStatus,
+    moderationStatus: "normal",
     createdAt: now,
     updatedAt: now,
     publishedAt: null,
@@ -96,12 +99,12 @@ export async function updateJobFields(
 
   const existing = await ref.get();
   if (!existing.exists) {
-    throw new Error("Job not found");
+    throw new AppError(404, "Job not found");
   }
 
   const data = existing.data() as JobDocument;
   if (data.vendorId !== vendorId) {
-    throw new Error("Not authorized to modify this job");
+    throw new AppError(403, "Not authorized to modify this job");
   }
 
   const {
@@ -132,15 +135,15 @@ export async function publishJob(
 
   const existing = await ref.get();
   if (!existing.exists) {
-    throw new Error("Job not found");
+    throw new AppError(404, "Job not found");
   }
 
   const data = existing.data() as JobDocument;
   if (data.vendorId !== vendorId) {
-    throw new Error("Not authorized to modify this job");
+    throw new AppError(403, "Not authorized to modify this job");
   }
   if (data.status !== "draft") {
-    throw new Error("Only draft jobs can be published");
+    throw new AppError(400, "Only draft jobs can be published");
   }
 
   await ref.update({
@@ -162,15 +165,15 @@ export async function closeJob(
 
   const existing = await ref.get();
   if (!existing.exists) {
-    throw new Error("Job not found");
+    throw new AppError(404, "Job not found");
   }
 
   const data = existing.data() as JobDocument;
   if (data.vendorId !== vendorId) {
-    throw new Error("Not authorized to modify this job");
+    throw new AppError(403, "Not authorized to modify this job");
   }
   if (data.status !== "published") {
-    throw new Error("Only published jobs can be closed");
+    throw new AppError(400, "Only published jobs can be closed");
   }
 
   await ref.update({

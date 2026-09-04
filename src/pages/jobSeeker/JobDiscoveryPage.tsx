@@ -6,6 +6,7 @@ import {
 } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import { useAuth } from "../../context/useAuth";
+import { CompactVerificationBadge } from "../../components/ui/VerificationBadge";
 import type { PublicJob, JobDiscoveryMeta } from "../../types";
 import {
   JOB_CATEGORIES,
@@ -41,9 +42,14 @@ function JobCard({ job }: { job: PublicJob }) {
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold text-neutral-900 leading-snug">
-            {job.title}
-          </h3>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-lg font-semibold text-neutral-900 leading-snug">
+                {job.title}
+              </h3>
+              <CompactVerificationBadge status={job.vendorVerificationStatus} />
+            </div>
+          </div>
           <span className="shrink-0 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 border border-primary-200">
             {formatPay(job.rateType, job.rateAmount)}
           </span>
@@ -118,6 +124,12 @@ export default function JobDiscoveryPage() {
   const [workType, setWorkType] = useState(searchParams.get("workType") ?? "");
   const [rateType, setRateType] = useState(searchParams.get("rateType") ?? "");
   const [minPay, setMinPay] = useState(searchParams.get("minPay") ?? "");
+  const [city, setCity] = useState(searchParams.get("city") ?? "");
+  const [state, setState] = useState(searchParams.get("state") ?? "");
+  const [area, setArea] = useState(searchParams.get("area") ?? "");
+  const [verifiedOnly, setVerifiedOnly] = useState(
+    searchParams.get("verifiedOnly") === "true",
+  );
   const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "newest");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -162,6 +174,10 @@ export default function JobDiscoveryPage() {
       const w = overrides.workType ?? workType;
       const r = overrides.rateType ?? rateType;
       const mp = overrides.minPay !== undefined ? overrides.minPay : (minPay ? Number(minPay) : undefined);
+      const ct = overrides.city ?? city;
+      const st = overrides.state ?? state;
+      const ar = overrides.area ?? area;
+      const vo = overrides.verifiedOnly !== undefined ? overrides.verifiedOnly : verifiedOnly;
       const sort = overrides.sortBy ?? sortBy;
 
       if (s) params.search = s;
@@ -169,11 +185,15 @@ export default function JobDiscoveryPage() {
       if (w) params.workType = w;
       if (r) params.rateType = r;
       if (mp !== undefined && mp > 0) params.minPay = mp;
+      if (ct) params.city = ct;
+      if (st) params.state = st;
+      if (ar) params.area = ar;
+      if (vo) params.verifiedOnly = true;
       if (sort) params.sortBy = sort as "newest" | "pay-high" | "pay-low";
 
       return params;
     },
-    [search, category, workType, rateType, minPay, sortBy],
+    [search, category, workType, rateType, minPay, city, state, area, verifiedOnly, sortBy],
   );
 
   useEffect(() => {
@@ -200,6 +220,18 @@ export default function JobDiscoveryPage() {
       case "minPay":
         setMinPay(value);
         break;
+      case "city":
+        setCity(value);
+        break;
+      case "state":
+        setState(value);
+        break;
+      case "area":
+        setArea(value);
+        break;
+      case "verifiedOnly":
+        setVerifiedOnly(value === "true");
+        break;
       case "sortBy":
         setSortBy(value);
         break;
@@ -218,6 +250,10 @@ export default function JobDiscoveryPage() {
     setWorkType("");
     setRateType("");
     setMinPay("");
+    setCity("");
+    setState("");
+    setArea("");
+    setVerifiedOnly(false);
     setSortBy("newest");
     setSearchParams({});
     void fetchJobs({ sortBy: "newest" });
@@ -230,6 +266,10 @@ export default function JobDiscoveryPage() {
     if (workType) params.set("workType", workType);
     if (rateType) params.set("rateType", rateType);
     if (minPay) params.set("minPay", minPay);
+    if (city) params.set("city", city);
+    if (state) params.set("state", state);
+    if (area) params.set("area", area);
+    if (verifiedOnly) params.set("verifiedOnly", "true");
     if (sortBy && sortBy !== "newest") params.set("sort", sortBy);
     setSearchParams(params, { replace: true });
   };
@@ -247,7 +287,8 @@ export default function JobDiscoveryPage() {
     }
   };
 
-  const hasActiveFilters = category || workType || rateType || minPay;
+  const hasActiveFilters =
+    category || workType || rateType || minPay || city || state || area || verifiedOnly;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -268,6 +309,7 @@ export default function JobDiscoveryPage() {
           </svg>
           <input
             type="text"
+            aria-label="Search jobs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -352,6 +394,47 @@ export default function JobDiscoveryPage() {
             placeholder="0"
             className="w-24 px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 mb-1">City</label>
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => handleFilterChange("city", e.target.value)}
+            placeholder="e.g. Mumbai"
+            className="w-36 px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 mb-1">State</label>
+          <input
+            type="text"
+            value={state}
+            onChange={(e) => handleFilterChange("state", e.target.value)}
+            placeholder="e.g. Maharashtra"
+            className="w-36 px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 mb-1">Area</label>
+          <input
+            type="text"
+            value={area}
+            onChange={(e) => handleFilterChange("area", e.target.value)}
+            placeholder="e.g. Bandra"
+            className="w-36 px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
+        <div className="flex items-end pb-2.5">
+          <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={verifiedOnly}
+              onChange={(e) => handleFilterChange("verifiedOnly", e.target.checked ? "true" : "false")}
+              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+            />
+            Verified employers only
+          </label>
         </div>
         <div>
           <label className="block text-xs font-medium text-neutral-500 mb-1">Sort By</label>
@@ -439,7 +522,46 @@ export default function JobDiscoveryPage() {
                 className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">City</label>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => handleFilterChange("city", e.target.value)}
+                placeholder="e.g. Mumbai"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">State</label>
+              <input
+                type="text"
+                value={state}
+                onChange={(e) => handleFilterChange("state", e.target.value)}
+                placeholder="e.g. Maharashtra"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Area</label>
+              <input
+                type="text"
+                value={area}
+                onChange={(e) => handleFilterChange("area", e.target.value)}
+                placeholder="e.g. Bandra"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white"
+              />
+            </div>
           </div>
+          <label className="flex items-center gap-2 text-sm text-neutral-700 mt-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={verifiedOnly}
+              onChange={(e) => handleFilterChange("verifiedOnly", e.target.checked ? "true" : "false")}
+              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+            />
+            Verified employers only
+          </label>
           <div className="flex gap-2 mt-4">
             <button
               type="button"
@@ -486,6 +608,30 @@ export default function JobDiscoveryPage() {
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium border border-primary-200">
               Min ${minPay}
               <button type="button" onClick={() => { setMinPay(""); }} className="ml-1 hover:text-primary-900">&times;</button>
+            </span>
+          )}
+          {city && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium border border-primary-200">
+              {city}
+              <button type="button" onClick={() => { setCity(""); }} className="ml-1 hover:text-primary-900">&times;</button>
+            </span>
+          )}
+          {state && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium border border-primary-200">
+              {state}
+              <button type="button" onClick={() => { setState(""); }} className="ml-1 hover:text-primary-900">&times;</button>
+            </span>
+          )}
+          {area && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium border border-primary-200">
+              {area}
+              <button type="button" onClick={() => { setArea(""); }} className="ml-1 hover:text-primary-900">&times;</button>
+            </span>
+          )}
+          {verifiedOnly && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium border border-primary-200">
+              Verified only
+              <button type="button" onClick={() => { setVerifiedOnly(false); }} className="ml-1 hover:text-primary-900">&times;</button>
             </span>
           )}
         </div>

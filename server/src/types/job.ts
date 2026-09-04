@@ -15,6 +15,7 @@ export interface JobDocument {
     state: string;
     country: string;
     address: string;
+    area?: string;
   };
   startDate: string;
   endDate: string;
@@ -42,6 +43,7 @@ export interface JobResponse {
     state: string;
     country: string;
     address: string;
+    area?: string;
   };
   startDate: string;
   endDate: string;

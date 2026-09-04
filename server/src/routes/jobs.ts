@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireAccountActive } from "../middleware/auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
@@ -43,6 +43,7 @@ router.get(
 
 router.post(
   "/",
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
 
@@ -133,6 +134,7 @@ router.patch(
 
 router.post(
   "/:jobId/publish",
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
     const jobId = String(req.params.jobId);
@@ -144,6 +146,7 @@ router.post(
 
 router.post(
   "/:jobId/close",
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
     const jobId = String(req.params.jobId);

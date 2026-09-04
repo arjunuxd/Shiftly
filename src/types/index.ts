@@ -184,6 +184,7 @@ export interface JobLocation {
   state: string;
   country: string;
   address: string;
+  area?: string;
 }
 
 export interface Job {
@@ -255,6 +256,7 @@ export interface PublicJob {
   spotsAvailable: number;
   status: JobStatus;
   publishedAt: string | null;
+  vendorVerificationStatus: VendorVerificationStatus;
 }
 
 export interface JobDiscoveryMeta {
@@ -300,4 +302,152 @@ export interface Message {
 
 export interface VendorApplicationWithJob extends Application {
   jobTitle: string;
+}
+
+// ─── Admin types (Phase 8) ──────────────────────────────────
+
+export type AccountStatus = "active" | "suspended";
+export type ModerationStatus = "normal" | "flagged" | "removed";
+export type AdminAction =
+  | "USER_SUSPENDED"
+  | "USER_RESTORED"
+  | "VENDOR_VERIFIED"
+  | "VENDOR_REJECTED"
+  | "JOB_SEEKER_VERIFIED"
+  | "JOB_SEEKER_REJECTED"
+  | "JOB_REMOVED"
+  | "JOB_RESTORED"
+  | "REPORT_RESOLVED"
+  | "REPORT_DISMISSED";
+
+export interface AdminUser {
+  uid: string;
+  email: string;
+  role: UserRole;
+  status: AccountStatus;
+  suspendedAt: string | null;
+  suspensionReason: string | null;
+  suspendedBy: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface AdminPlatformOverview {
+  totalUsers: number;
+  totalJobSeekers: number;
+  totalVendors: number;
+  totalSuperadmins: number;
+  suspendedUsers: number;
+  activeJobs: number;
+  pendingVerifications: number;
+  openReports: number;
+}
+
+export interface AdminVerification {
+  id: string;
+  userId: string;
+  type: string;
+  status: VerificationStatus;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  reviewedBy: string | null;
+}
+
+export interface AdminVendorVerification {
+  id: string;
+  businessName: string;
+  businessType: string;
+  city: string;
+  country: string;
+  status: VendorVerificationStatus;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+}
+
+export interface AdminJob {
+  id: string;
+  vendorId: string;
+  title: string;
+  description: string;
+  jobCategory: string;
+  workType: string;
+  rateType: JobRateType;
+  rateAmount: number;
+  location: JobLocation;
+  startDate: string;
+  endDate: string;
+  shiftStart: string;
+  shiftEnd: string;
+  spotsAvailable: number;
+  status: JobStatus;
+  publishedAt: string | null;
+  closedAt: string | null;
+  moderationStatus: ModerationStatus;
+  moderatedAt: string | null;
+  moderatedBy: string | null;
+  moderationReason: string | null;
+}
+
+export type ReportStatusType = "open" | "resolved" | "dismissed";
+export type ReportTargetType = "user" | "job";
+
+export interface AdminReport {
+  id: string;
+  reporterId: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: string;
+  description: string;
+  status: ReportStatusType;
+  createdAt: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  adminId: string;
+  action: AdminAction;
+  targetType: string;
+  targetId: string;
+  reason: string | null;
+  createdAt: string | null;
+}
+
+// ─── Notification types (Phase 9) ─────────────────────────────
+export type NotificationType =
+  | "APPLICATION_RECEIVED"
+  | "APPLICATION_WITHDRAWN"
+  | "APPLICATION_ACCEPTED"
+  | "APPLICATION_REJECTED"
+  | "NEW_MESSAGE"
+  | "VERIFICATION_APPROVED"
+  | "VERIFICATION_REJECTED";
+
+export interface AppNotification {
+  id: string;
+  recipientId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  readAt: string | null;
+  createdAt: string | null;
+  actorId: string | null;
+  data: {
+    jobId?: string | null;
+    applicationId?: string | null;
+    conversationId?: string | null;
+    verificationType?: string | null;
+    reason?: string | null;
+  };
+}
+
+export interface NotificationListResponse {
+  notifications: AppNotification[];
+  unreadCount: number;
+  nextPageToken: string | null;
+  hasMore: boolean;
 }

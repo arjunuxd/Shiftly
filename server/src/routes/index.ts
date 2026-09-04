@@ -9,6 +9,8 @@ import applicationsRoutes from "./applications.js";
 import jobDiscoveryRoutes from "./jobDiscovery.js";
 import vendorApplicationsRoutes from "./vendorApplications.js";
 import conversationsRoutes from "./conversations.js";
+import adminRoutes from "./admin.js";
+import notificationsRoutes from "./notifications.js";
 
 const router = Router();
 
@@ -26,5 +28,7 @@ router.use("/applications", applicationsRoutes);
 router.use("/discover", jobDiscoveryRoutes);
 router.use("/vendor/applications", vendorApplicationsRoutes);
 router.use("/conversations", conversationsRoutes);
+router.use("/notifications", notificationsRoutes);
+router.use("/admin", adminRoutes);
 
 export default router;

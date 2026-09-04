@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { discoverJob, applyToJob } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import { useAuth } from "../../context/useAuth";
+import { CompactVerificationBadge } from "../../components/ui/VerificationBadge";
 import type { PublicJob } from "../../types";
 
 function formatPay(rateType: string, rateAmount: number): string {
@@ -145,9 +146,12 @@ export default function JobDetailPage() {
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-2">
-              {job.title}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900">
+                {job.title}
+              </h1>
+              <CompactVerificationBadge status={job.vendorVerificationStatus} />
+            </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
               <span className="inline-flex items-center gap-1">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -305,7 +309,11 @@ export default function JobDetailPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-neutral-500">Location</p>
-                <p className="text-neutral-900 font-medium">{job.location.city}, {job.location.state}</p>
+                <p className="text-neutral-900 font-medium">
+                  {[job.location.area, job.location.city, job.location.state]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
                 {job.location.address && (
                   <p className="text-sm text-neutral-500">{job.location.address}</p>
                 )}

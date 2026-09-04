@@ -7,6 +7,7 @@ import type {
   ApplicationStatus,
 } from "../types/application.js";
 import { getJob } from "./jobService.js";
+import { createNotification } from "./notificationService.js";
 
 const COLLECTION = "applications";
 
@@ -67,6 +68,14 @@ export async function createApplication(
         updatedAt: FieldValue.serverTimestamp(),
       });
       const updated = await ref.get();
+      await createNotification({
+        recipientId: job.vendorId,
+        type: "APPLICATION_RECEIVED",
+        title: "New application received",
+        body: `A job seeker has applied to your job "${job.title}".`,
+        actorId: jobSeekerId,
+        data: { jobId, applicationId },
+      });
       return serializeApplication(
         updated.id,
         updated.data() as ApplicationDocument,
@@ -86,6 +95,15 @@ export async function createApplication(
   };
 
   await ref.set(doc);
+
+  await createNotification({
+    recipientId: job.vendorId,
+    type: "APPLICATION_RECEIVED",
+    title: "New application received",
+    body: `A job seeker has applied to your job "${job.title}".`,
+    actorId: jobSeekerId,
+    data: { jobId, applicationId },
+  });
 
   return {
     id: applicationId,
@@ -145,6 +163,11 @@ export async function getApplicationForJob(
     return null;
   }
 
+  const data = snapshot.data() as ApplicationDocument;
+  if (data.jobSeekerId !== jobSeekerId) {
+    return null;
+  }
+
   return serializeApplication(
     snapshot.id,
     snapshot.data() as ApplicationDocument,
@@ -179,6 +202,16 @@ export async function withdrawApplication(
   await ref.update({
     status: "withdrawn" as ApplicationStatus,
     updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  const job = await getJob(data.jobId);
+  await createNotification({
+    recipientId: data.vendorId,
+    type: "APPLICATION_WITHDRAWN",
+    title: "Application withdrawn",
+    body: `An applicant has withdrawn their application for "${job?.title ?? "your job"}".`,
+    actorId: jobSeekerId,
+    data: { jobId: data.jobId, applicationId },
   });
 
   const updated = await ref.get();

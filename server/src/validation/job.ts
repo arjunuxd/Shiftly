@@ -122,6 +122,8 @@ export function validateJobFields(body: unknown): ValidationError[] {
       if (countryErr) errors.push(countryErr);
       const addressErr = validateOptionalString(loc.address, "location.address", 300);
       if (addressErr) errors.push(addressErr);
+      const areaErr = validateOptionalString(loc.area, "location.area", 100);
+      if (areaErr) errors.push(areaErr);
     }
   }
 

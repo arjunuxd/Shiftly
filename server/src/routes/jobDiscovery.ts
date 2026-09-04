@@ -49,6 +49,11 @@ router.get(
     const rateType = validateEnumParam(req.query.rateType, VALID_RATE_TYPES);
     const minPay = validateMinPay(req.query.minPay);
     const city = validateSearchParam(req.query.city);
+    const state = validateSearchParam(req.query.state);
+    const area = validateSearchParam(req.query.area);
+    const verifiedOnlyRaw = req.query.verifiedOnly;
+    const verifiedOnly =
+      verifiedOnlyRaw === "true" || verifiedOnlyRaw === "1";
     const sortBy = validateEnumParam(req.query.sortBy, VALID_SORT) ?? "newest";
     const pageToken = validatePageToken(req.query.pageToken);
 
@@ -59,6 +64,9 @@ router.get(
       ...(rateType && { rateType }),
       ...(minPay !== undefined && { minPay }),
       ...(city && { city }),
+      ...(state && { state }),
+      ...(area && { area }),
+      ...(verifiedOnly && { verifiedOnly: true }),
       sortBy: sortBy as "newest" | "pay-high" | "pay-low",
     };
 

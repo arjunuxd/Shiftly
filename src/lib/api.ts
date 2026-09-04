@@ -12,6 +12,15 @@ import type {
   Conversation,
   Message,
   VendorApplicationWithJob,
+  AdminUser,
+  AdminPlatformOverview,
+  AdminVerification,
+  AdminVendorVerification,
+  AdminJob,
+  AdminReport,
+  AdminAuditLog,
+  NotificationListResponse,
+  AppNotification,
 } from "../types";
 
 export const API_BASE_URL: string =
@@ -370,6 +379,9 @@ export interface JobDiscoveryParams {
   rateType?: string;
   minPay?: number;
   city?: string;
+  state?: string;
+  area?: string;
+  verifiedOnly?: boolean;
   sortBy?: "newest" | "pay-high" | "pay-low";
   pageToken?: string;
 }
@@ -384,6 +396,9 @@ export async function discoverJobs(
   if (params.rateType) query.set("rateType", params.rateType);
   if (params.minPay !== undefined) query.set("minPay", String(params.minPay));
   if (params.city) query.set("city", params.city);
+  if (params.state) query.set("state", params.state);
+  if (params.area) query.set("area", params.area);
+  if (params.verifiedOnly) query.set("verifiedOnly", "true");
   if (params.sortBy) query.set("sortBy", params.sortBy);
   if (params.pageToken) query.set("pageToken", params.pageToken);
 
@@ -600,4 +615,387 @@ export async function sendConversationMessage(
     throw new Error(await parseError(response, `Failed to send message with status ${response.status}`));
   }
   return response.json() as Promise<Message>;
+}
+
+// ─── Admin API ───────────────────────────────────────────────
+
+async function adminHeaders(idToken: string): Promise<HeadersInit> {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${idToken}`,
+  };
+}
+
+export async function adminGetOverview(idToken: string): Promise<AdminPlatformOverview> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/overview`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load overview with status ${response.status}`);
+  }
+  return response.json() as Promise<AdminPlatformOverview>;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+  total: number;
+}
+
+export async function adminGetUsers(
+  idToken: string,
+  params: {
+    role?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<AdminUsersResponse> {
+  const query = new URLSearchParams();
+  if (params.role) query.set("role", params.role);
+  if (params.status) query.set("status", params.status);
+  if (params.search) query.set("search", params.search);
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.offset) query.set("offset", String(params.offset));
+  const qs = query.toString();
+  const response = await fetch(`${API_BASE_URL}/api/admin/users${qs ? `?${qs}` : ""}`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load users with status ${response.status}`);
+  }
+  return response.json() as Promise<AdminUsersResponse>;
+}
+
+export async function adminGetUser(idToken: string, uid: string): Promise<AdminUser> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/${uid}`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load user with status ${response.status}`);
+  }
+  return response.json() as Promise<AdminUser>;
+}
+
+export async function adminSuspendUser(
+  idToken: string,
+  uid: string,
+  reason: string,
+): Promise<AdminUser> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/${uid}/suspend`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+    body: JSON.stringify({ reason }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to suspend user with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminUser>;
+}
+
+export async function adminRestoreUser(
+  idToken: string,
+  uid: string,
+): Promise<AdminUser> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/${uid}/restore`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to restore user with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminUser>;
+}
+
+export async function adminGetVerifications(
+  idToken: string,
+  status?: string,
+): Promise<AdminVerification[]> {
+  const qs = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
+  const response = await fetch(`${API_BASE_URL}/api/admin/verifications${qs}`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load verifications with status ${response.status}`);
+  }
+  return response.json() as Promise<AdminVerification[]>;
+}
+
+export async function adminApproveVerification(
+  idToken: string,
+  userId: string,
+): Promise<AdminVerification> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/verifications/${userId}/approve`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to approve verification with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminVerification>;
+}
+
+export async function adminRejectVerification(
+  idToken: string,
+  userId: string,
+  reason: string,
+): Promise<AdminVerification> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/verifications/${userId}/reject`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+    body: JSON.stringify({ reason }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to reject verification with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminVerification>;
+}
+
+export async function adminGetVendorVerifications(
+  idToken: string,
+  status?: string,
+): Promise<AdminVendorVerification[]> {
+  const qs = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
+  const response = await fetch(`${API_BASE_URL}/api/admin/vendor-verifications${qs}`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load vendor verifications with status ${response.status}`);
+  }
+  return response.json() as Promise<AdminVendorVerification[]>;
+}
+
+export async function adminApproveVendorVerification(
+  idToken: string,
+  uid: string,
+): Promise<AdminVendorVerification> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/vendor-verifications/${uid}/approve`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to approve vendor verification with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminVendorVerification>;
+}
+
+export async function adminRejectVendorVerification(
+  idToken: string,
+  uid: string,
+  reason: string,
+): Promise<AdminVendorVerification> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/vendor-verifications/${uid}/reject`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+    body: JSON.stringify({ reason }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to reject vendor verification with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminVendorVerification>;
+}
+
+export interface AdminJobsResponse {
+  jobs: AdminJob[];
+  total: number;
+}
+
+export async function adminGetJobs(
+  idToken: string,
+  params: {
+    status?: string;
+    moderationStatus?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<AdminJobsResponse> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.moderationStatus) query.set("moderationStatus", params.moderationStatus);
+  if (params.search) query.set("search", params.search);
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.offset) query.set("offset", String(params.offset));
+  const qs = query.toString();
+  const response = await fetch(`${API_BASE_URL}/api/admin/jobs${qs ? `?${qs}` : ""}`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load jobs with status ${response.status}`);
+  }
+  return response.json() as Promise<AdminJobsResponse>;
+}
+
+export async function adminRemoveJob(
+  idToken: string,
+  jobId: string,
+  reason: string,
+): Promise<AdminJob> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}/remove`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+    body: JSON.stringify({ reason }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to remove job with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminJob>;
+}
+
+export async function adminRestoreJob(
+  idToken: string,
+  jobId: string,
+): Promise<AdminJob> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}/restore`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to restore job with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminJob>;
+}
+
+export interface AdminReportsResponse {
+  reports: AdminReport[];
+  total: number;
+}
+
+export async function adminGetReports(
+  idToken: string,
+  params: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<AdminReportsResponse> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.offset) query.set("offset", String(params.offset));
+  const qs = query.toString();
+  const response = await fetch(`${API_BASE_URL}/api/admin/reports${qs ? `?${qs}` : ""}`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load reports with status ${response.status}`);
+  }
+  return response.json() as Promise<AdminReportsResponse>;
+}
+
+export async function adminResolveReport(
+  idToken: string,
+  reportId: string,
+): Promise<AdminReport> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/reports/${reportId}/resolve`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to resolve report with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminReport>;
+}
+
+export async function adminDismissReport(
+  idToken: string,
+  reportId: string,
+): Promise<AdminReport> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/reports/${reportId}/dismiss`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to dismiss report with status ${response.status}`));
+  }
+  return response.json() as Promise<AdminReport>;
+}
+
+export interface AdminAuditLogsResponse {
+  logs: AdminAuditLog[];
+  total: number;
+}
+
+export async function adminGetAuditLogs(
+  idToken: string,
+  params: { limit?: number; offset?: number } = {},
+): Promise<AdminAuditLogsResponse> {
+  const query = new URLSearchParams();
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.offset) query.set("offset", String(params.offset));
+  const qs = query.toString();
+  const response = await fetch(`${API_BASE_URL}/api/admin/audit-logs${qs ? `?${qs}` : ""}`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load audit logs with status ${response.status}`);
+  }
+  return response.json() as Promise<AdminAuditLogsResponse>;
+}
+
+// ─── Notifications (Phase 9) ──────────────────────────────────
+
+export async function getNotifications(
+  idToken: string,
+  pageToken?: string,
+): Promise<NotificationListResponse> {
+  const query = pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : "";
+  const response = await fetch(`${API_BASE_URL}/api/notifications${query}`, {
+    headers: await authHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load notifications with status ${response.status}`,
+    );
+  }
+  return response.json() as Promise<NotificationListResponse>;
+}
+
+export async function getUnreadNotificationCount(
+  idToken: string,
+): Promise<number> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/notifications/unread-count`,
+    { headers: await authHeaders(idToken) },
+  );
+  if (!response.ok) {
+    return 0;
+  }
+  const data = (await response.json()) as { unreadCount: number };
+  return data.unreadCount;
+}
+
+export async function markNotificationAsRead(
+  idToken: string,
+  notificationId: string,
+): Promise<AppNotification> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/notifications/${notificationId}/read`,
+    {
+      method: "PATCH",
+      headers: await authHeaders(idToken),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Failed to mark notification as read with status ${response.status}`,
+    );
+  }
+  const data = (await response.json()) as { notification: AppNotification };
+  return data.notification;
+}
+
+export async function markAllNotificationsAsRead(
+  idToken: string,
+): Promise<{ updated: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
+    method: "PATCH",
+    headers: await authHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to mark all notifications as read with status ${response.status}`,
+    );
+  }
+  return response.json() as Promise<{ updated: number }>;
 }

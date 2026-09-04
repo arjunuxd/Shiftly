@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { getCurrentIdToken } from "../../lib/auth";
-import { getConversations } from "../../lib/api";
+import { getConversations, sendConversationMessage } from "../../lib/api";
 import { db } from "../../lib/firestore";
 import {
   collection,
@@ -9,10 +9,6 @@ import {
   orderBy,
   limit as fsLimit,
   onSnapshot,
-  addDoc,
-  serverTimestamp,
-  doc,
-  updateDoc,
 } from "firebase/firestore";
 import { useAuth } from "../../context/useAuth";
 import type { Conversation, Message } from "../../types";
@@ -126,19 +122,8 @@ function ChatView({
 
     setSending(true);
     try {
-      const messagesRef = collection(db, "conversations", conversationId, "messages");
-      await addDoc(messagesRef, {
-        senderId: currentUserId,
-        text: trimmed,
-        createdAt: serverTimestamp(),
-      });
-
-      const convRef = doc(db, "conversations", conversationId);
-      await updateDoc(convRef, {
-        lastMessageText: trimmed,
-        lastMessageAt: serverTimestamp(),
-      });
-
+      const token = await getCurrentIdToken();
+      await sendConversationMessage(token, conversationId, trimmed);
       setNewText("");
     } catch {
       // error handled silently
@@ -188,6 +173,7 @@ function ChatView({
         <div className="flex gap-2">
           <input
             type="text"
+            aria-label="Type a message"
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder="Type a message..."
@@ -263,11 +249,23 @@ export default function MessagingPage() {
             {/* Chat area */}
             <div className={`flex-1 ${!selectedId ? "hidden sm:flex" : "flex"} flex-col`}>
               {selectedId && currentUser ? (
-                <ChatView
-                  key={selectedId}
-                  conversationId={selectedId}
-                  currentUserId={currentUser.uid}
-                />
+                <>
+                  <div className="flex items-center gap-2 p-3 border-b border-neutral-200 sm:hidden">
+                    <button
+                      type="button"
+                      aria-label="Back to conversations"
+                      onClick={() => setSelectedId(null)}
+                      className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700"
+                    >
+                      &larr; Conversations
+                    </button>
+                  </div>
+                  <ChatView
+                    key={selectedId}
+                    conversationId={selectedId}
+                    currentUserId={currentUser.uid}
+                  />
+                </>
               ) : (
                 <div className="flex items-center justify-center h-full text-neutral-400 text-sm">
                   Select a conversation to start messaging

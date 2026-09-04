@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { getRoleHomePath } from "../lib/roles";
+import NotificationBell from "./notifications/NotificationBell";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -79,6 +80,14 @@ export default function Header() {
                     Messages
                   </Link>
                 )}
+                {role === "superadmin" && (
+                  <Link
+                    to="/admin"
+                    className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                  >
+                    Admin
+                  </Link>
+                )}
                 {dashboardPath && (
                   <Link
                     to={dashboardPath}
@@ -87,6 +96,7 @@ export default function Header() {
                     Dashboard
                   </Link>
                 )}
+                <NotificationBell />
                 <button
                   type="button"
                   onClick={() => void signOut()}
@@ -162,15 +172,40 @@ export default function Header() {
                       >
                         Messages
                       </Link>
+                      <Link
+                        to="/job-seeker/notifications"
+                        className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Notifications
+                      </Link>
                     </>
                   )}
                   {role === "vendor" && (
+                    <>
+                      <Link
+                        to="/vendor/messages"
+                        className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Messages
+                      </Link>
+                      <Link
+                        to="/vendor/notifications"
+                        className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Notifications
+                      </Link>
+                    </>
+                  )}
+                  {role === "superadmin" && (
                     <Link
-                      to="/vendor/messages"
+                      to="/admin"
                       className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors px-2 py-1"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      Messages
+                      Admin
                     </Link>
                   )}
                   {dashboardPath && (

@@ -7,6 +7,7 @@ import type {
   MessageDocument,
   MessageResponse,
 } from "../types/conversation.js";
+import { createNotification } from "./notificationService.js";
 
 const CONVERSATIONS = "conversations";
 const MESSAGES = "messages";
@@ -61,6 +62,24 @@ export async function getOrCreateConversation(
       snapshot.id,
       snapshot.data() as ConversationDocument,
     );
+  }
+
+  const applicationRef = db.collection("applications").doc(applicationId);
+  const applicationSnapshot = await applicationRef.get();
+  if (!applicationSnapshot.exists) {
+    throw new AppError(404, "Application not found.");
+  }
+  const applicationData = applicationSnapshot.data() as {
+    jobSeekerId?: string;
+    vendorId?: string;
+    jobId?: string;
+  };
+  if (
+    applicationData.jobSeekerId !== jobSeekerId ||
+    applicationData.vendorId !== vendorId ||
+    applicationData.jobId !== jobId
+  ) {
+    throw new AppError(403, "Application does not match this conversation.");
   }
 
   const now = FieldValue.serverTimestamp();
@@ -212,6 +231,20 @@ export async function createConversationMessage(
   });
 
   await batch.commit();
+
+  const recipientId =
+    convData.participantVendorId === senderId
+      ? convData.participantJobSeekerId
+      : convData.participantVendorId;
+
+  await createNotification({
+    recipientId,
+    type: "NEW_MESSAGE",
+    title: "New message",
+    body: text.length > 120 ? `${text.slice(0, 120)}...` : text,
+    actorId: senderId,
+    data: { conversationId },
+  });
 
   return {
     id: msgRef.id,

@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { getAdminAuth, isAdminReady } from "../config/firebaseAdmin.js";
 import { AppError } from "./errorHandler.js";
 import type { Role } from "../types/auth.js";
+import { isUserActive } from "../services/userService.js";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -65,4 +66,50 @@ export function requireRole(...allowedRoles: Role[]) {
     }
     next();
   };
+}
+
+export function requireSuperadmin(
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction,
+): void {
+  const role = req.user?.role;
+  if (role !== "superadmin") {
+    next(new AppError(403, "Insufficient permissions"));
+    return;
+  }
+  next();
+}
+
+export async function requireAccountActive(
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const user = req.user;
+    if (!user) {
+      next(new AppError(401, "Authentication required"));
+      return;
+    }
+
+    if (user.role === "superadmin") {
+      next();
+      return;
+    }
+
+    const active = await isUserActive(user.uid);
+    if (!active) {
+      next(new AppError(403, "Account has been suspended."));
+      return;
+    }
+
+    next();
+  } catch (error) {
+    if (error instanceof AppError) {
+      next(error);
+      return;
+    }
+    next();
+  }
 }

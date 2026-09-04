@@ -45,6 +45,7 @@ const EMPTY_DATA: JobFormData = {
     state: "",
     country: "",
     address: "",
+    area: "",
   },
   startDate: "",
   endDate: "",
@@ -305,6 +306,18 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
             placeholder="e.g. 123 Market Street"
           />
           <div className="grid gap-4 sm:grid-cols-3">
+            <FormField
+              label="Street address"
+              value={form.location.address}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation("address", e.target.value)}
+              placeholder="e.g. 123 Market Street"
+            />
+            <FormField
+              label="Area"
+              value={form.location.area ?? ""}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation("area", e.target.value)}
+              placeholder="e.g. Bandra West"
+            />
             <FormField
               label="City"
               value={form.location.city}

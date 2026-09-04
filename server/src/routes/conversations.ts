@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAccountActive } from "../middleware/auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
@@ -13,8 +13,15 @@ import {
   validateMessageBody,
   validateConversationBody,
 } from "../validation/conversation.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 
 const router = Router();
+
+const messageSendLimit = rateLimit({
+  windowMs: 10_000,
+  max: 20,
+  keyPrefix: "message-send",
+});
 
 router.use(requireAuth);
 
@@ -38,6 +45,7 @@ router.get(
 
 router.post(
   "/",
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
 
@@ -89,6 +97,8 @@ router.get(
 
 router.post(
   "/:conversationId/messages",
+  requireAccountActive,
+  messageSendLimit,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
     const conversationId = String(req.params.conversationId);

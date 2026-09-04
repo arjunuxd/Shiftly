@@ -1,4 +1,4 @@
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Transaction } from "firebase-admin/firestore";
 import { getAdminFirestore } from "../config/firebaseAdmin.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type {
@@ -7,6 +7,8 @@ import type {
   ApplicationStatus,
 } from "../types/application.js";
 import { getJob } from "./jobService.js";
+import { createNotification } from "./notificationService.js";
+import type { JobDocument } from "../types/job.js";
 
 const COLLECTION = "applications";
 
@@ -91,43 +93,67 @@ export async function acceptApplication(
 ): Promise<ApplicationResponse> {
   const db = getAdminFirestore();
   const ref = db.collection(COLLECTION).doc(applicationId);
-  const snapshot = await ref.get();
+  const jobRef = db.collection("jobs");
 
-  if (!snapshot.exists) {
-    throw new AppError(404, "Application not found.");
-  }
+  const preSnapshot = await ref.get();
+  const preData = preSnapshot.data() as ApplicationDocument | undefined;
+  const recipientId = preData?.jobSeekerId;
+  const jobId = preData?.jobId;
 
-  const data = snapshot.data() as ApplicationDocument;
-  if (data.vendorId !== vendorId) {
-    throw new AppError(403, "You do not have access to this application.");
-  }
-  if (data.status !== "applied") {
-    throw new AppError(400, `Cannot accept an application with status "${data.status}".`);
-  }
+  let jobTitle = "this job";
 
-  const job = await getJob(data.jobId);
-  if (!job) {
-    throw new AppError(404, "Job not found.");
-  }
+  await db.runTransaction(async (transaction: Transaction): Promise<void> => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) {
+      throw new AppError(404, "Application not found.");
+    }
 
-  const batch = db.batch();
+    const data = snapshot.data() as ApplicationDocument;
+    if (data.vendorId !== vendorId) {
+      throw new AppError(403, "You do not have access to this application.");
+    }
+    if (data.status !== "applied") {
+      throw new AppError(
+        400,
+        `Cannot accept an application with status "${data.status}".`,
+      );
+    }
 
-  batch.update(ref, {
-    status: "accepted" as ApplicationStatus,
-    updatedAt: FieldValue.serverTimestamp(),
+    const jobSnapshot = await transaction.get(jobRef.doc(data.jobId));
+    if (!jobSnapshot.exists) {
+      throw new AppError(404, "Job not found.");
+    }
+
+    const jobData = jobSnapshot.data() as JobDocument;
+    if (typeof jobData.spotsAvailable !== "number" || jobData.spotsAvailable <= 0) {
+      throw new AppError(400, "No spots are available for this job.");
+    }
+
+    jobTitle = jobData.title;
+
+    transaction.update(ref, {
+      status: "accepted" as ApplicationStatus,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const newSpots = jobData.spotsAvailable - 1;
+    transaction.update(jobRef.doc(data.jobId), {
+      spotsAvailable: newSpots,
+      updatedAt: FieldValue.serverTimestamp(),
+      ...(newSpots <= 0
+        ? { status: "closed", closedAt: FieldValue.serverTimestamp() }
+        : {}),
+    });
   });
 
-  const newSpots = job.spotsAvailable - 1;
-  const jobRef = db.collection("jobs").doc(data.jobId);
-  batch.update(jobRef, {
-    spotsAvailable: newSpots,
-    updatedAt: FieldValue.serverTimestamp(),
-    ...(newSpots <= 0
-      ? { status: "closed", closedAt: FieldValue.serverTimestamp() }
-      : {}),
+  await createNotification({
+    recipientId: recipientId ?? "",
+    type: "APPLICATION_ACCEPTED",
+    title: "Application accepted",
+    body: `Congratulations! The vendor hired you for "${jobTitle}".`,
+    actorId: vendorId,
+    data: { jobId: jobId ?? "", applicationId },
   });
-
-  await batch.commit();
 
   const updated = await ref.get();
   return serializeApplication(updated.id, updated.data() as ApplicationDocument);
@@ -156,6 +182,16 @@ export async function rejectApplication(
   await ref.update({
     status: "rejected" as ApplicationStatus,
     updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  const job = await getJob(data.jobId);
+  await createNotification({
+    recipientId: data.jobSeekerId,
+    type: "APPLICATION_REJECTED",
+    title: "Application not selected",
+    body: `Unfortunately your application for "${job?.title ?? "this job"}" was not selected.`,
+    actorId: vendorId,
+    data: { jobId: data.jobId, applicationId },
   });
 
   const updated = await ref.get();

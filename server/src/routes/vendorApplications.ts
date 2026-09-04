@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireAccountActive } from "../middleware/auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
@@ -49,6 +49,7 @@ router.get(
 
 router.patch(
   "/:applicationId/accept",
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
     const applicationId = String(req.params.applicationId);
@@ -64,6 +65,7 @@ router.patch(
 
 router.patch(
   "/:applicationId/reject",
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
     const applicationId = String(req.params.applicationId);
