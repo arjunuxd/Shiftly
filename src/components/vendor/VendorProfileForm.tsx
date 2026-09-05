@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
 import type { FormEvent, ChangeEvent } from "react";
 import FormField, { FormError, SubmitButton, FriendlyAlert } from "../ui/FormField";
+import UnsavedChangesDialog from "../ui/UnsavedChangesDialog";
+import { useUnsavedChangesWarning } from "../../hooks/useUnsavedChangesWarning";
 import type { VendorProfile } from "../../types";
 import { BUSINESS_TYPES } from "../../types";
+import { getFriendlyError } from "../../lib/errors";
+
+function isEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 function SectionHeading({
   title,
@@ -64,6 +71,9 @@ export default function VendorProfileForm({
     setForm(initialData ?? EMPTY_DATA);
   }, [initialData]);
 
+  const dirty = !isEqual(form, initialData ?? EMPTY_DATA);
+  const blocker = useUnsavedChangesWarning(dirty);
+
   function setBusinessInfo(field: string, value: string) {
     setForm((prev) => ({
       ...prev,
@@ -102,7 +112,7 @@ export default function VendorProfileForm({
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save vendor profile.");
+      setError(getFriendlyError(err, "We couldn't save your business profile. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -234,6 +244,8 @@ export default function VendorProfileForm({
               : "Save Changes"}
         </SubmitButton>
       </div>
+
+      <UnsavedChangesDialog blocker={blocker} busy={saving} />
     </form>
   );
 }

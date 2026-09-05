@@ -57,32 +57,48 @@ export default function ProfileDisplay({ profile }: { profile: Profile }) {
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex items-start gap-4">
-        {photoUrl ? (
-          <img
-            src={photoUrl}
-            alt={personalInfo.fullName}
-            className="h-16 w-16 shrink-0 rounded-full object-cover border border-neutral-200"
-          />
-        ) : (
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xl font-bold text-primary-700">
-            {personalInfo.fullName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2)}
-          </div>
-        )}
-        <div>
-          <h2 className="text-2xl font-bold text-neutral-900">
-            {personalInfo.fullName}
-          </h2>
-          {personalInfo.phone && (
-            <p className="mt-1 text-sm text-neutral-500">{personalInfo.phone}</p>
+      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start gap-4">
+          {photoUrl ? (
+            <img
+              src={photoUrl}
+              alt={personalInfo.fullName}
+              className="h-20 w-20 shrink-0 rounded-full object-cover border border-neutral-200"
+            />
+          ) : (
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary-100 text-2xl font-bold text-primary-700">
+              {personalInfo.fullName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2)}
+            </div>
           )}
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold text-neutral-900">
+              {personalInfo.fullName}
+            </h2>
+            {profile.headline && (
+              <p className="mt-0.5 text-base text-neutral-500">
+                {profile.headline}
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              {personalInfo.phone && (
+                <p className="text-sm text-neutral-500">{personalInfo.phone}</p>
+              )}
+              {location.city && (
+                <p className="text-sm text-neutral-500">
+                  {[location.city, location.state]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* About */}
       {personalInfo.bio && (
@@ -221,7 +237,8 @@ export default function ProfileDisplay({ profile }: { profile: Profile }) {
                 <p className="text-sm text-neutral-500">{edu.institution}</p>
                 <p className="text-sm text-neutral-500">{edu.fieldOfStudy}</p>
                 <p className="mt-1 text-xs text-neutral-400">
-                  {edu.startYear} — {edu.endYear}
+                  {edu.startYear} —{" "}
+                  {edu.currentlyStudying ? "Present" : edu.endYear}
                 </p>
               </div>
             ))}

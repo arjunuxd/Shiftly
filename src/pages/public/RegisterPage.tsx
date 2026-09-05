@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent, ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { registerWithEmail } from "../../lib/auth";
+import { registerWithEmail, sendVerificationEmail } from "../../lib/auth";
 import { getAuthErrorMessage } from "../../lib/authErrors";
 import { assignRole } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
@@ -72,6 +72,11 @@ export default function RegisterPage() {
     setPending(true);
     try {
       await registerWithEmail(email.trim(), password);
+      try {
+        await sendVerificationEmail();
+      } catch {
+        // User can resend from the /verify-email page if this attempt fails.
+      }
       const token = await getCurrentIdToken();
       await assignRole(token, role as UserRole);
 

@@ -16,4 +16,5 @@ export type AdminAction =
   | "JOB_REMOVED"
   | "JOB_RESTORED"
   | "REPORT_RESOLVED"
-  | "REPORT_DISMISSED";
+  | "REPORT_DISMISSED"
+  | "ADMIN_CREATED";

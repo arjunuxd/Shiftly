@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getCurrentIdToken } from "../../lib/auth";
 import {
   adminGetUsers,
@@ -7,17 +8,46 @@ import {
 } from "../../lib/api";
 import type { AdminUser } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import ReasonDialog from "../../components/ui/ReasonDialog";
+import DataErrorState from "../../components/ui/DataErrorState";
+import { getFriendlyError } from "../../lib/errors";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import StatusPill, { PillDot } from "../../components/admin/StatusPill";
+import EmptyState from "../../components/admin/EmptyState";
+import TableSkeleton from "../../components/admin/TableSkeleton";
+import PaginationControls from "../../components/admin/PaginationControls";
+
+function RolePill({ role }: { role: AdminUser["role"] }) {
+  const map: Record<AdminUser["role"], "purple" | "indigo" | "blue" | "green"> = {
+    superadmin: "purple",
+    admin: "indigo",
+    vendor: "blue",
+    job_seeker: "green",
+  };
+  const label: Record<AdminUser["role"], string> = {
+    superadmin: "Superadmin",
+    admin: "Admin",
+    vendor: "Vendor",
+    job_seeker: "Job Seeker",
+  };
+  return <StatusPill tone={map[role]}>{label[role]}</StatusPill>;
+}
 
 export default function AdminUsersPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState(searchParams.get("role") ?? "all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "all");
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
+  const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<AdminUser | null>(null);
+  const [busy, setBusy] = useState(false);
   const limit = 20;
 
   const loadUsers = useCallback(async () => {
@@ -35,7 +65,7 @@ export default function AdminUsersPage() {
       setUsers(result.users);
       setTotal(result.total);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load users.");
+      setError(getFriendlyError(e, "Something went wrong while loading the users. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -45,50 +75,82 @@ export default function AdminUsersPage() {
     loadUsers();
   }, [loadUsers]);
 
-  async function handleSuspend(uid: string) {
-    const reason = window.prompt("Reason for suspension:");
-    if (!reason || reason.trim().length === 0) return;
+  async function confirmSuspend(reason: string) {
+    if (!suspendTarget) return;
+    setBusy(true);
+    setActionError(null);
     try {
       const token = await getCurrentIdToken();
-      await adminSuspendUser(token, uid, reason.trim());
+      await adminSuspendUser(token, suspendTarget.uid, reason);
+      setSuspendTarget(null);
       await loadUsers();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Failed to suspend user.");
+      setActionError(getFriendlyError(e, "We couldn't suspend this user. Please try again."));
+    } finally {
+      setBusy(false);
     }
   }
 
-  async function handleRestore(uid: string) {
-    if (!window.confirm("Are you sure you want to restore this user?")) return;
+  async function confirmRestore() {
+    if (!restoreTarget) return;
+    setBusy(true);
+    setActionError(null);
     try {
       const token = await getCurrentIdToken();
-      await adminRestoreUser(token, uid);
+      await adminRestoreUser(token, restoreTarget.uid);
+      setRestoreTarget(null);
       await loadUsers();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Failed to restore user.");
+      setActionError(getFriendlyError(e, "We couldn't restore this user. Please try again."));
+    } finally {
+      setBusy(false);
     }
   }
-
-  const totalPages = Math.ceil(total / limit);
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-neutral-900 mb-6">User Management</h2>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Moderation"
+        title="User Management"
+        description="Review, filter, and manage every account on the platform."
+      />
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-3">
         <select
           value={roleFilter}
-          onChange={(e) => { setRoleFilter(e.target.value); setOffset(0); }}
-          className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white"
+          onChange={(e) => {
+            setRoleFilter(e.target.value);
+            setOffset(0);
+            setSearchParams(current => {
+              const next = new URLSearchParams(current);
+              if (e.target.value === "all") next.delete("role");
+              else next.set("role", e.target.value);
+              return next;
+            });
+          }}
+          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-700 outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30"
+          aria-label="Filter by role"
         >
           <option value="all">All Roles</option>
           <option value="job_seeker">Job Seekers</option>
           <option value="vendor">Vendors</option>
+          <option value="admin">Admins</option>
           <option value="superadmin">Superadmins</option>
         </select>
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}
-          className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white"
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setOffset(0);
+            setSearchParams(current => {
+              const next = new URLSearchParams(current);
+              if (e.target.value === "all") next.delete("status");
+              else next.set("status", e.target.value);
+              return next;
+            });
+          }}
+          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-700 outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30"
+          aria-label="Filter by status"
         >
           <option value="all">All Statuses</option>
           <option value="active">Active</option>
@@ -99,83 +161,79 @@ export default function AdminUsersPage() {
           placeholder="Search by email..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
-          className="px-3 py-2 border border-neutral-300 rounded-lg text-sm flex-1 min-w-[200px]"
+          className="min-w-[220px] flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-700 outline-none transition-colors placeholder:text-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30"
         />
       </div>
 
       {actionError && (
-        <div className="mb-4">
-          <FriendlyAlert icon="error" title="That action didn't go through">
-            {actionError}
-          </FriendlyAlert>
-        </div>
+        <FriendlyAlert icon="error" title="That action didn't go through">
+          {actionError}
+        </FriendlyAlert>
       )}
 
-      {error && (
-        <div className="mb-4">
-          <FriendlyAlert icon="error" title="We couldn't load the user list">
-            {error}
-          </FriendlyAlert>
-        </div>
-      )}
-
-      <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+      {error ? (
+        <DataErrorState
+          title="We couldn't load the users"
+          message={error}
+          onRetry={() => void loadUsers()}
+        />
+      ) : (
+      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-neutral-600">Email</th>
-                <th className="px-4 py-3 text-left font-medium text-neutral-600">Role</th>
-                <th className="px-4 py-3 text-left font-medium text-neutral-600">Status</th>
-                <th className="px-4 py-3 text-left font-medium text-neutral-600">Created</th>
-                <th className="px-4 py-3 text-right font-medium text-neutral-600">Actions</th>
+            <thead>
+              <tr className="border-b border-neutral-200 bg-neutral-50/80">
+                <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Email</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Role</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Status</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500">Created</th>
+                <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-neutral-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-neutral-400">Loading...</td>
-                </tr>
+                <TableSkeleton rows={6} cells={5} />
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-neutral-400">No users found.</td>
+                  <td colSpan={5}>
+                    <EmptyState
+                      icon={
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z" />
+                        </svg>
+                      }
+                      title="No users found"
+                      hint="Try changing the role, status, or search filters."
+                    />
+                  </td>
                 </tr>
               ) : (
                 users.map((u) => (
-                  <tr key={u.uid} className="hover:bg-neutral-50">
-                    <td className="px-4 py-3 text-neutral-900 font-medium">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        u.role === "superadmin" ? "bg-purple-100 text-purple-800"
-                        : u.role === "vendor" ? "bg-blue-100 text-blue-800"
-                        : "bg-emerald-100 text-emerald-800"
-                      }`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        u.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                      }`}>
+                  <tr key={u.uid} className="transition-colors hover:bg-primary-50/40">
+                    <td className="px-5 py-3.5 font-medium text-neutral-900">{u.email}</td>
+                    <td className="px-5 py-3.5"><RolePill role={u.role} /></td>
+                    <td className="px-5 py-3.5">
+                      <StatusPill tone={u.status === "active" ? "green" : "red"}>
+                        <PillDot />
                         {u.status}
-                      </span>
+                      </StatusPill>
                     </td>
-                    <td className="px-4 py-3 text-neutral-500">
+                    <td className="px-5 py-3.5 text-neutral-500">
                       {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-5 py-3.5 text-right">
                       {u.role !== "superadmin" && (
                         u.status === "active" ? (
                           <button
-                            onClick={() => handleSuspend(u.uid)}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            onClick={() => setSuspendTarget(u)}
+                            className="inline-flex items-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
                           >
                             Suspend
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleRestore(u.uid)}
-                            className="text-green-600 hover:text-green-800 text-sm font-medium"
+                            onClick={() => setRestoreTarget(u)}
+                            className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
                           >
                             Restore
                           </button>
@@ -189,30 +247,38 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-sm text-neutral-500">
-            Showing {offset + 1}–{Math.min(offset + limit, total)} of {total}
-          </p>
-          <div className="flex gap-2">
-            <button
-              disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - limit))}
-              className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg disabled:opacity-40 hover:bg-neutral-50"
-            >
-              Previous
-            </button>
-            <button
-              disabled={offset + limit >= total}
-              onClick={() => setOffset(offset + limit)}
-              className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg disabled:opacity-40 hover:bg-neutral-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       )}
+
+      <PaginationControls
+        offset={offset}
+        limit={limit}
+        total={total}
+        onPrev={() => setOffset(Math.max(0, offset - limit))}
+        onNext={() => setOffset(offset + limit)}
+      />
+
+      <ReasonDialog
+        open={suspendTarget !== null}
+        title={`Suspend ${suspendTarget?.email ?? "this user"}?`}
+        message="Suspended users can't post jobs, apply, or message until they're restored."
+        confirmLabel="Suspend user"
+        reasonLabel="Suspension reason"
+        reasonPlaceholder="e.g. Repeated policy violations"
+        reasonRequired
+        busy={busy}
+        onConfirm={(reason) => void confirmSuspend(reason)}
+        onCancel={() => setSuspendTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={restoreTarget !== null}
+        title="Restore this user?"
+        message={`Restoring ${restoreTarget?.email ?? "this user"} gives them back full platform access.`}
+        confirmLabel="Restore"
+        busy={busy}
+        onConfirm={() => void confirmRestore()}
+        onCancel={() => setRestoreTarget(null)}
+      />
     </div>
   );
 }

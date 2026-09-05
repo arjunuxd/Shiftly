@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAccountActive } from "../middleware/auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { requireRole } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
@@ -18,6 +18,7 @@ router.get(
   "/",
   requireAuth,
   requireRole("job_seeker"),
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
     const profile = await getProfile(user.uid);
@@ -34,6 +35,7 @@ router.post(
   "/",
   requireAuth,
   requireRole("job_seeker"),
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
 
@@ -50,6 +52,7 @@ router.post(
     const body = req.body as Record<string, unknown>;
 
     const profile = await createProfile(user.uid, {
+      headline: (body.headline as string | undefined) ?? "",
       personalInfo: body.personalInfo as {
         fullName: string;
         bio: string;
@@ -107,6 +110,7 @@ router.patch(
   "/",
   requireAuth,
   requireRole("job_seeker"),
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
 
@@ -123,6 +127,7 @@ router.patch(
     const body = req.body as Record<string, unknown>;
 
     const allowedFields = [
+      "headline",
       "personalInfo",
       "skills",
       "experience",

@@ -8,7 +8,8 @@ export interface JobDiscoveryFilters {
   state?: string;
   area?: string;
   verifiedOnly?: boolean;
-  sortBy?: "newest" | "pay-high" | "pay-low";
+  sortBy?: "newest" | "pay-high" | "pay-low" | "location";
+  locationHint?: { city?: string; state?: string };
 }
 
 export interface JobDiscoveryPagination {

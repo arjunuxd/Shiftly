@@ -20,6 +20,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // profilePhotos/{uid} — server-only uploads (stored as data URLs)
+    match /profilePhotos/{uid} {
+      allow read, write: if false;
+    }
+
+    // resumes/{uid} — server-only uploads
+    match /resumes/{uid} {
+      allow read, write: if false;
+    }
+
+    // certificates/{certificateDoc} — server-only uploads (doc id "{uid}__{certificateId}")
+    match /certificates/{certificateDoc} {
+      allow read, write: if false;
+    }
+
     // verifications/{uid}
     match /verifications/{uid} {
       allow read, write: if false;

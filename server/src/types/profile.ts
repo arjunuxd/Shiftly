@@ -26,6 +26,7 @@ export interface ProfileEducation {
   fieldOfStudy: string;
   startYear: number;
   endYear: number;
+  currentlyStudying?: boolean;
 }
 
 export interface ProfileAvailabilityDay {
@@ -64,6 +65,7 @@ export interface ProfilePortfolioLink {
 }
 
 export interface ProfileDocument {
+  headline?: string;
   personalInfo: ProfilePersonalInfo;
   skills: ProfileSkill[];
   experience: ProfileExperience[];

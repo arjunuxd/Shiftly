@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireAccountActive } from "../middleware/auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
@@ -16,6 +16,7 @@ router.get(
   "/",
   requireAuth,
   requireRole("vendor"),
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
     const profile = await getVendorProfile(user.uid);
@@ -32,6 +33,7 @@ router.post(
   "/",
   requireAuth,
   requireRole("vendor"),
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
 
@@ -72,6 +74,7 @@ router.patch(
   "/",
   requireAuth,
   requireRole("vendor"),
+  requireAccountActive,
   async (req: Request, res: Response): Promise<void> => {
     const user = (req as AuthenticatedRequest).user!;
 

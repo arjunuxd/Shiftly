@@ -17,12 +17,14 @@ router.get(
 
     const userDoc = await getUserDocument(user.uid);
     const role = userDoc?.role ?? user.role ?? null;
+    const accountStatus = userDoc?.status === "suspended" ? "suspended" : "active";
 
     res.json({
       uid: user.uid,
       email: user.email,
       emailVerified: user.emailVerified,
       role,
+      accountStatus,
     });
   },
 );

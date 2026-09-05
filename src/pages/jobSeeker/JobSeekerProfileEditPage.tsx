@@ -32,6 +32,7 @@ export default function JobSeekerProfileEditPage() {
   }
 
   const initialData: Omit<Profile, "id" | "completeness"> = {
+    headline: profile.headline,
     personalInfo: profile.personalInfo,
     skills: profile.skills,
     experience: profile.experience,

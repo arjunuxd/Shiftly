@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   discoverJobs,
@@ -6,8 +6,10 @@ import {
 } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import { useAuth } from "../../context/useAuth";
+import { useProfile } from "../../context/useProfile";
 import { CompactVerificationBadge } from "../../components/ui/VerificationBadge";
 import { FriendlyAlert } from "../../components/ui/FormField";
+import { getFriendlyError } from "../../lib/errors";
 import type { PublicJob, JobDiscoveryMeta } from "../../types";
 import {
   JOB_CATEGORIES,
@@ -17,6 +19,7 @@ import {
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
+  { value: "location", label: "Near You" },
   { value: "pay-high", label: "Pay: High to Low" },
   { value: "pay-low", label: "Pay: Low to High" },
 ] as const;
@@ -35,23 +38,30 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
+function titleCase(str: string): string {
+  return str
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 function JobCard({ job }: { job: PublicJob }) {
   return (
     <Link
       to={`/jobs/${job.id}`}
-      className="block rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-primary-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+      className="group block rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-card-hover hover:border-primary-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-lg font-semibold text-neutral-900 leading-snug">
+              <h3 className="text-lg font-semibold text-neutral-900 leading-snug group-hover:text-primary-800 transition-colors">
                 {job.title}
               </h3>
               <CompactVerificationBadge status={job.vendorVerificationStatus} />
             </div>
           </div>
-          <span className="shrink-0 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 border border-primary-200">
+          <span className="shrink-0 rounded-full bg-accent-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
             {formatPay(job.rateType, job.rateAmount)}
           </span>
         </div>
@@ -61,30 +71,54 @@ function JobCard({ job }: { job: PublicJob }) {
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0" />
             </svg>
-            {job.jobCategory.charAt(0).toUpperCase() + job.jobCategory.slice(1)}
+            {titleCase(job.jobCategory)}
           </span>
           <span className="inline-flex items-center gap-1">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            {job.workType.charAt(0).toUpperCase() + job.workType.slice(1).replace("-", " ")}
+            {titleCase(job.workType)}
           </span>
           <span className="inline-flex items-center gap-1">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
             </svg>
-            {job.location.city}, {job.location.state}
+            {[job.location.city, job.location.area, job.location.state]
+              .filter(Boolean)
+              .join(", ")}
           </span>
         </div>
 
         <div className="flex items-center gap-4 text-sm text-neutral-500">
           {job.startDate && (
-            <span>{formatDate(job.startDate)}</span>
+            <span className="inline-flex items-center gap-1.5">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
+              {formatDate(job.startDate)}
+            </span>
           )}
           {job.shiftStart && job.shiftEnd && (
-            <span>{job.shiftStart} - {job.shiftEnd}</span>
+            <span className="inline-flex items-center gap-1.5">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {job.shiftStart} – {job.shiftEnd}
+            </span>
           )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-100 pt-3">
+          <span className="text-xs text-neutral-400">
+            {job.spotsAvailable} opening{job.spotsAvailable !== 1 ? "s" : ""}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors group-hover:bg-primary-700">
+            Apply
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </span>
         </div>
       </div>
     </Link>
@@ -112,6 +146,7 @@ function SkeletonCard() {
 
 export default function JobDiscoveryPage() {
   const { authenticated } = useAuth();
+  const { profile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [jobs, setJobs] = useState<PublicJob[]>([]);
@@ -157,8 +192,7 @@ export default function JobDiscoveryPage() {
         }
         setMeta(result.meta);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        setError(message || "Failed to load jobs. Please try again.");
+        setError(getFriendlyError(err, "Something went wrong while looking for shifts. Please try again."));
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -190,16 +224,29 @@ export default function JobDiscoveryPage() {
       if (st) params.state = st;
       if (ar) params.area = ar;
       if (vo) params.verifiedOnly = true;
-      if (sort) params.sortBy = sort as "newest" | "pay-high" | "pay-low";
+      if (sort) params.sortBy = sort as "newest" | "pay-high" | "pay-low" | "location";
+      if ((sort === "location") && profile?.location?.city) params.locationCity = profile.location.city;
+      if ((sort === "location") && profile?.location?.state) params.locationState = profile.location.state;
 
       return params;
     },
-    [search, category, workType, rateType, minPay, city, state, area, verifiedOnly, sortBy],
+    [search, category, workType, rateType, minPay, city, state, area, verifiedOnly, sortBy, profile],
   );
 
   useEffect(() => {
     void fetchJobs(buildParams());
   }, []);
+
+  const urlSearch = searchParams.get("search") ?? "";
+  const prevUrlSearch = useRef(urlSearch);
+
+  useEffect(() => {
+    if (urlSearch !== prevUrlSearch.current) {
+      prevUrlSearch.current = urlSearch;
+      setSearch(urlSearch);
+      void fetchJobs(buildParams({ search: urlSearch || undefined }));
+    }
+  }, [urlSearch]);
 
   const handleSearch = () => {
     const params = buildParams();
@@ -292,13 +339,18 @@ export default function JobDiscoveryPage() {
     category || workType || rateType || minPay || city || state || area || verifiedOnly;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-          Find Your Next Shift
+    <div className="max-w-6xl mx-auto px-4 pb-16">
+      {/* Hero */}
+      <div className="py-10 sm:py-14 border-b border-neutral-200 mb-8">
+        <p className="text-sm font-semibold uppercase tracking-wider text-accent-600 mb-2">
+          Find your next shift
+        </p>
+        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-neutral-900 leading-tight">
+          Work that fits your life.
         </h1>
-        <p className="text-neutral-500">
-          Browse published opportunities from verified employers.
+        <p className="mt-3 max-w-2xl text-lg text-neutral-500">
+          Browse part-time, temporary, and shift-based opportunities from
+          verified employers near you.
         </p>
       </div>
 
@@ -437,18 +489,6 @@ export default function JobDiscoveryPage() {
             Verified employers only
           </label>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-neutral-500 mb-1">Sort By</label>
-          <select
-            value={sortBy}
-            onChange={(e) => handleFilterChange("sortBy", e.target.value)}
-            className="px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
         <div className="flex gap-2">
           <button
             type="button"
@@ -563,6 +603,18 @@ export default function JobDiscoveryPage() {
             />
             Verified employers only
           </label>
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-neutral-500 mb-1">Sort By</label>
+            <select
+              value={sortBy}
+              onChange={(e) => handleFilterChange("sortBy", e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex gap-2 mt-4">
             <button
               type="button"
@@ -661,31 +713,57 @@ export default function JobDiscoveryPage() {
           </div>
         </div>
       ) : jobs.length === 0 ? (
-        <div className="text-center py-16">
-          <svg className="mx-auto h-12 w-12 text-neutral-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0" />
-          </svg>
-          <p className="text-neutral-700 font-medium mb-2">No jobs found</p>
-          <p className="text-neutral-500 text-sm mb-4">
+        <div className="text-center py-16 px-4 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 mb-4">
+            <svg className="h-7 w-7 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+          </div>
+          <p className="text-lg font-semibold text-neutral-900 mb-1">
+            No shifts match your search
+          </p>
+          <p className="text-neutral-500 text-sm mb-6 max-w-md mx-auto">
             {hasActiveFilters || search
-              ? "No jobs match your current filters. Try adjusting your search criteria."
-              : "No published jobs are available right now. Check back soon!"}
+              ? "Try removing a filter or searching for a broader term."
+              : "No published shifts are available right now. Check back soon!"}
           </p>
           {(hasActiveFilters || search) && (
             <button
               type="button"
               onClick={clearFilters}
-              className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-colors"
             >
-              Clear Filters
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear all filters
             </button>
           )}
         </div>
       ) : (
         <>
-          <p className="text-sm text-neutral-500 mb-4">
-            {jobs.length} {jobs.length === 1 ? "job" : "jobs"} found
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <p className="text-sm text-neutral-500">
+              {meta?.totalEstimate ?? jobs.length} shift
+              {jobs.length === 1 ? "" : "s"} matching your search
+            </p>
+            <div className="flex items-center gap-2">
+              <label htmlFor="jobs-sort" className="text-sm text-neutral-500">Sort</label>
+              <select
+                id="jobs-sort"
+                value={sortBy}
+                onChange={(e) => {
+                  handleFilterChange("sortBy", e.target.value);
+                  void fetchJobs(buildParams({ sortBy: e.target.value as "newest" | "pay-high" | "pay-low" | "location" }));
+                }}
+                className="px-3 py-2 rounded-lg border border-neutral-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="flex flex-col gap-4">
             {jobs.map((job) => (
               <JobCard key={job.id} job={job} />

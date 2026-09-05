@@ -6,6 +6,7 @@ import type {
   JobResponse,
   JobStatus,
 } from "../types/job.js";
+import { MAX_IN_MEMORY_FETCH, sortDocsDesc } from "./queryInMemory.js";
 
 const COLLECTION = "jobs";
 
@@ -41,10 +42,11 @@ export async function getJobsForVendor(vendorId: string): Promise<JobResponse[]>
   const snapshot = await db
     .collection(COLLECTION)
     .where("vendorId", "==", vendorId)
-    .orderBy("createdAt", "desc")
+    .limit(MAX_IN_MEMORY_FETCH)
     .get();
 
-  return snapshot.docs.map((doc) => serializeJob(doc.id, doc.data() as JobDocument));
+  const docs = sortDocsDesc(snapshot.docs, "createdAt");
+  return docs.map((doc) => serializeJob(doc.id, doc.data() as JobDocument));
 }
 
 export async function getJob(id: string): Promise<JobResponse | null> {

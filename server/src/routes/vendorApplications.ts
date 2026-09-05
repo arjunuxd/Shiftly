@@ -6,6 +6,7 @@ import { AppError } from "../middleware/errorHandler.js";
 import {
   getApplicationsForVendorJob,
   getApplicationForVendor,
+  getCandidateProfileForVendor,
   acceptApplication,
   rejectApplication,
 } from "../services/vendorApplicationService.js";
@@ -44,6 +45,21 @@ router.get(
 
     const application = await getApplicationForVendor(applicationId, user.uid);
     res.json(application);
+  },
+);
+
+router.get(
+  "/:applicationId/candidate",
+  async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user!;
+    const applicationId = String(req.params.applicationId);
+
+    if (!applicationId || applicationId.length > 128) {
+      throw new AppError(400, "Invalid application ID.");
+    }
+
+    const candidate = await getCandidateProfileForVendor(applicationId, user.uid);
+    res.json(candidate);
   },
 );
 

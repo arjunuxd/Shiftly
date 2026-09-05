@@ -18,6 +18,7 @@ export async function getProfile(uid: string): Promise<ProfileResponse | null> {
   const data = snapshot.data() as ProfileDocument;
   return {
     id: uid,
+    headline: data.headline ?? "",
     personalInfo: data.personalInfo,
     skills: data.skills,
     experience: data.experience,
@@ -87,6 +88,7 @@ export async function updateProfile(
 
   return {
     id: uid,
+    headline: data.headline ?? "",
     personalInfo: data.personalInfo,
     skills: data.skills,
     experience: data.experience,
@@ -104,6 +106,7 @@ export async function updateProfile(
 }
 
 export function calculateCompleteness(profile: {
+  headline?: string;
   personalInfo?: { fullName?: string; bio?: string };
   skills?: unknown[];
   experience?: unknown[];
@@ -120,6 +123,9 @@ export function calculateCompleteness(profile: {
 
   if (profile.personalInfo?.fullName && profile.personalInfo.fullName.trim().length > 0) {
     score += 15;
+  }
+  if (profile.headline && profile.headline.trim().length > 0) {
+    score += 5;
   }
   if (profile.personalInfo?.bio && profile.personalInfo.bio.trim().length > 0) {
     score += 5;
@@ -139,7 +145,7 @@ export function calculateCompleteness(profile: {
   }
 
   if (Array.isArray(profile.skills) && profile.skills.length > 0) {
-    score += 20;
+    score += 15;
   }
 
   if (Array.isArray(profile.experience) && profile.experience.length > 0) {

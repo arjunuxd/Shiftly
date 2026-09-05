@@ -8,6 +8,7 @@ import type {
   MessageResponse,
 } from "../types/conversation.js";
 import { createNotification } from "./notificationService.js";
+import { MAX_IN_MEMORY_FETCH, sortDocsDesc } from "./queryInMemory.js";
 
 const CONVERSATIONS = "conversations";
 const MESSAGES = "messages";
@@ -119,10 +120,11 @@ export async function getConversationsForUser(
   const snapshot = await db
     .collection(CONVERSATIONS)
     .where(field, "==", userId)
-    .orderBy("lastMessageAt", "desc")
+    .limit(MAX_IN_MEMORY_FETCH)
     .get();
 
-  return snapshot.docs.map((doc) =>
+  const docs = sortDocsDesc(snapshot.docs, "lastMessageAt");
+  return docs.map((doc) =>
     serializeConversation(doc.id, doc.data() as ConversationDocument),
   );
 }

@@ -30,7 +30,7 @@ export default function NotificationBell() {
     return () => clearInterval(interval);
   }, [refreshCount]);
 
-  if (!authenticated || !role || role === "superadmin") return null;
+  if (!authenticated || (role !== "job_seeker" && role !== "vendor")) return null;
 
   const path = role === "vendor" ? "/vendor/notifications" : "/job-seeker/notifications";
 

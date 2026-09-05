@@ -14,6 +14,7 @@ import {
   submitVendorVerification as apiSubmitVendorVerification,
 } from "../lib/api";
 import { getCurrentIdToken } from "../lib/auth";
+import { humanizeApiError } from "../lib/errors";
 import type { VendorProfile, VendorVerificationInfo } from "../types";
 
 export interface VendorProfileContextValue {
@@ -62,7 +63,12 @@ export function VendorProfileProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         setVerification(null);
       } else {
-        setProfileError(message);
+        setProfileError(
+          humanizeApiError(
+            message,
+            "We couldn't load your business profile. Please try again.",
+          ),
+        );
       }
     } finally {
       setProfileLoading(false);

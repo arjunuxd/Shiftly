@@ -12,6 +12,7 @@ import {
   updateProfile as apiUpdateProfile,
 } from "../lib/api";
 import { getCurrentIdToken } from "../lib/auth";
+import { humanizeApiError } from "../lib/errors";
 import type { Profile } from "../types";
 
 export interface ProfileContextValue {
@@ -48,7 +49,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (message === "PROFILE_NOT_FOUND") {
         setProfile(null);
       } else {
-        setProfileError(message);
+        setProfileError(
+          humanizeApiError(
+            message,
+            "We couldn't load your profile. Please try again.",
+          ),
+        );
       }
     } finally {
       setProfileLoading(false);

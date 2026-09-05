@@ -43,27 +43,32 @@ export default function VendorProfileDisplay({
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xl font-bold text-primary-700">
-            {businessInfo.businessName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2)}
+      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-4 min-w-0">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary-100 text-2xl font-bold text-primary-700">
+              {businessInfo.businessName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2)}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-2xl font-bold text-neutral-900">
+                {businessInfo.businessName}
+              </h2>
+              <p className="mt-1 text-sm text-neutral-500">
+                {(businessInfo.businessType && BUSINESS_TYPE_LABELS[businessInfo.businessType]) || "Business"}
+              </p>
+              <p className="mt-1 text-sm text-neutral-500">
+                {[location.city, location.state].filter(Boolean).join(", ") || "Location not set"}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-neutral-900">
-              {businessInfo.businessName}
-            </h2>
-            <p className="mt-1 text-sm text-neutral-500">
-              {(businessInfo.businessType && BUSINESS_TYPE_LABELS[businessInfo.businessType]) || "Business"}
-            </p>
-          </div>
+          <VerificationBadge status={verification.status} />
         </div>
-        <VerificationBadge status={verification.status} />
-      </div>
+      </section>
 
       {/* Danger notice if rejected */}
       {verification.status === "rejected" && verification.rejectionReason && (

@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { JobForm } from "../../components/vendor/JobForm";
 import type { JobFormData } from "../../components/vendor/JobForm";
 import { getJob, updateJob } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import type { Job } from "../../types";
-import { FriendlyAlert } from "../../components/ui/FormField";
+import DataErrorState from "../../components/ui/DataErrorState";
+import { getFriendlyError } from "../../lib/errors";
 
 export default function VendorJobEditPage() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -14,25 +15,29 @@ export default function VendorJobEditPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!jobId) return;
-    let active = true;
     setLoading(true);
-    getCurrentIdToken()
-      .then((token) => getJob(token, jobId))
-      .then((data) => {
-        if (active) setJob(data);
-      })
-      .catch((err: unknown) => {
-        if (active) setError(err instanceof Error ? err.message : "Failed to load job.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+    setError(null);
+    try {
+      const token = await getCurrentIdToken();
+      const data = await getJob(token, jobId);
+      setJob(data);
+    } catch (err: unknown) {
+      const notFound = err instanceof Error && err.message === "JOB_NOT_FOUND";
+      setError(
+        notFound
+          ? "This job isn't available anymore. It may have been removed."
+          : getFriendlyError(err, "We couldn't load this job. Please try again."),
+      );
+    } finally {
+      setLoading(false);
+    }
   }, [jobId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   if (loading) {
     return (
@@ -45,15 +50,19 @@ export default function VendorJobEditPage() {
   if (error || !job) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <FriendlyAlert icon="error" title="We couldn't load this job">
-          {error ?? "Job not found."}
-        </FriendlyAlert>
-        <Link
-          to="/vendor/jobs"
-          className="mt-4 inline-block text-sm text-primary-600 hover:text-primary-700"
-        >
-          &larr; Back to jobs
-        </Link>
+        <DataErrorState
+          title="We couldn't load this job"
+          message={error ?? "This job isn't available anymore."}
+          onRetry={() => void load()}
+        />
+        <div className="mt-4 text-center">
+          <Link
+            to="/vendor/jobs"
+            className="text-sm text-primary-600 hover:text-primary-700"
+          >
+            &larr; Back to jobs
+          </Link>
+        </div>
       </div>
     );
   }

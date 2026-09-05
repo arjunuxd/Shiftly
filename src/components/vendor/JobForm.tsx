@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
 import type { FormEvent, ChangeEvent } from "react";
 import FormField, { FormError, SubmitButton, FriendlyAlert } from "../ui/FormField";
+import UnsavedChangesDialog from "../ui/UnsavedChangesDialog";
+import { useUnsavedChangesWarning } from "../../hooks/useUnsavedChangesWarning";
 import type { Job, JobRateType } from "../../types";
 import { JOB_CATEGORIES, WORK_TYPES, RATE_TYPES } from "../../types";
+import { getFriendlyError } from "../../lib/errors";
+
+function isEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   JOB_CATEGORIES.map((c) => [c.value, c.label]),
@@ -70,6 +77,9 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
     if (initialData) setForm(initialData);
   }, [initialData]);
 
+  const dirty = !isEqual(form, initialData ?? EMPTY_DATA);
+  const blocker = useUnsavedChangesWarning(dirty);
+
   function setField(field: keyof JobFormData, value: unknown) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
@@ -125,7 +135,7 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save job.");
+      setError(getFriendlyError(err, "We couldn't save this job. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -353,6 +363,8 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
           {saving ? "Saving..." : "Save Job"}
         </SubmitButton>
       </div>
+
+      <UnsavedChangesDialog blocker={blocker} busy={saving} />
     </form>
   );
 }

@@ -8,6 +8,7 @@ import { VerificationBadge } from "../../components/ui/VerificationBadge";
 import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
 import ProfileCompletionCard from "../../components/profile/ProfileCompletionCard";
 import type { VerificationRecord, PublicJob, Application, Conversation } from "../../types";
+import { APPLICATION_STATUS_LABELS } from "../../types";
 
 function CompletenessBar({ value }: { value: number }) {
   return (
@@ -63,7 +64,13 @@ export default function JobSeekerDashboard() {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const result = await discoverJobs({ sortBy: "newest" });
+      const city = profile?.location?.city;
+      const state = profile?.location?.state;
+      const result = await discoverJobs({
+        sortBy: "location",
+        ...(city ? { locationCity: city } : {}),
+        ...(state ? { locationState: state } : {}),
+      });
       setRecentJobs(result.jobs.slice(0, 3));
     } catch {
       // non-blocking
@@ -82,7 +89,7 @@ export default function JobSeekerDashboard() {
     }
 
     setDashLoading(false);
-  }, []);
+  }, [profile]);
 
   useEffect(() => {
     void fetchDashboardData();
@@ -101,12 +108,17 @@ export default function JobSeekerDashboard() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
       <JobSeekerNav />
-      <h1 className="mt-6 text-3xl font-bold text-neutral-900 mb-2">
-        Job Seeker Dashboard
-      </h1>
-      <p className="text-neutral-500 mb-8">
-        Manage your profile and track your job search.
-      </p>
+      <div className="mt-6 border-b border-neutral-200 pb-6 mb-6">
+        <p className="text-sm font-semibold uppercase tracking-wider text-accent-600 mb-2">
+          Welcome back
+        </p>
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 mb-1">
+          Home
+        </h1>
+        <p className="text-neutral-500">
+          Manage your profile and track your job search.
+        </p>
+      </div>
 
       <div className="flex flex-col gap-6">
         {/* Profile Card */}
@@ -233,8 +245,8 @@ export default function JobSeekerDashboard() {
             to="/job-seeker/messages"
             className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-primary-200 transition-all flex items-center gap-4"
           >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary-50">
+              <svg className="h-6 w-6 text-primary-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 20.105V4.875A1.875 1.875 0 015.625 3h12.75A1.875 1.875 0 0120.25 4.875v10.5A1.875 1.875 0 0118.375 17.25H7.5l-3.75 2.855z" />
               </svg>
             </div>
@@ -271,14 +283,16 @@ export default function JobSeekerDashboard() {
                   <div className="flex items-center gap-3 shrink-0">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                       app.status === "applied"
-                        ? "bg-green-50 text-green-700"
-                        : app.status === "withdrawn"
-                          ? "bg-neutral-50 text-neutral-600"
-                          : app.status === "accepted"
-                            ? "bg-primary-50 text-primary-700"
-                            : "bg-red-50 text-red-700"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : app.status === "under-review"
+                          ? "bg-sky-50 text-sky-700"
+                          : app.status === "withdrawn" || app.status === "cancelled"
+                            ? "bg-neutral-100 text-neutral-500"
+                            : app.status === "accepted" || app.status === "hired"
+                              ? "bg-accent-50 text-accent-800"
+                              : "bg-red-50 text-red-700"
                     }`}>
-                      {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                      {APPLICATION_STATUS_LABELS[app.status] ?? app.status}
                     </span>
                     {app.appliedAt && (
                       <span className="text-xs text-neutral-400">{formatDate(app.appliedAt)}</span>
@@ -294,7 +308,9 @@ export default function JobSeekerDashboard() {
         {!dashLoading && recentJobs.length > 0 && (
           <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-neutral-900">Latest Opportunities</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">
+                {profile?.location?.city ? "Near You" : "Latest Opportunities"}
+              </h2>
               <Link
                 to="/jobs"
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"

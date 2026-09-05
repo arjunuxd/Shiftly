@@ -81,6 +81,7 @@ export default function JobSeekerProfileCreatePage() {
   }
 
   const initialData: Omit<Profile, "id" | "completeness"> = {
+    headline: "",
     personalInfo: {
       fullName: "",
       bio: "",
@@ -119,7 +120,7 @@ export default function JobSeekerProfileCreatePage() {
           to="/job-seeker"
           className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
         >
-          &larr; Dashboard
+          &larr; Home
         </Link>
         <h1 className="mt-2 text-3xl font-bold text-neutral-900">
           Welcome! Let's build your profile.

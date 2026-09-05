@@ -3,6 +3,7 @@ import { getAdminFirestore } from "../config/firebaseAdmin.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { ModerationStatus } from "../types/admin.js";
 import type { JobDocument, JobResponse } from "../types/job.js";
+import { MAX_IN_MEMORY_FETCH, sortDocsDesc } from "./queryInMemory.js";
 
 const COLLECTION = "jobs";
 
@@ -57,20 +58,23 @@ export async function getAdminJobs(params: {
   const db = getAdminFirestore();
   const { status, moderationStatus, search, limit = 20, offset = 0 } = params;
 
-  let query: FirebaseFirestore.Query = db.collection(COLLECTION);
+  const snapshot = await db
+    .collection(COLLECTION)
+    .limit(MAX_IN_MEMORY_FETCH)
+    .get();
 
-  if (status && status !== "all") {
-    query = query.where("status", "==", status);
-  }
-  if (moderationStatus && moderationStatus !== "all") {
-    query = query.where("moderationStatus", "==", moderationStatus);
-  }
+  const docs = sortDocsDesc(snapshot.docs, "createdAt");
 
-  const snapshot = await query.orderBy("createdAt", "desc").get();
-
-  let jobs = snapshot.docs.map((doc) =>
+  let jobs = docs.map((doc) =>
     serializeJob(doc.id, doc.data() as JobDocument & { moderationStatus?: ModerationStatus }),
   );
+
+  if (status && status !== "all") {
+    jobs = jobs.filter((j) => j.status === status);
+  }
+  if (moderationStatus && moderationStatus !== "all") {
+    jobs = jobs.filter((j) => j.moderationStatus === moderationStatus);
+  }
 
   if (search && search.trim().length > 0) {
     const lower = search.toLowerCase().trim();

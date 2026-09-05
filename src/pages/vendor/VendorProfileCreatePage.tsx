@@ -41,7 +41,7 @@ export default function VendorProfileCreatePage() {
           to="/vendor"
           className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
         >
-          &larr; Dashboard
+          &larr; Home
         </Link>
         <h1 className="mt-2 text-3xl font-bold text-neutral-900">
           Create Your Business Profile

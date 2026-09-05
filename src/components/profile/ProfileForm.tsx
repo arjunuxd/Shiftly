@@ -1,15 +1,24 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import type { FormEvent, ChangeEvent } from "react";
 import FormField, { FormError, SubmitButton, FriendlyAlert } from "../ui/FormField";
+import ConfirmDialog from "../ui/ConfirmDialog";
+import UnsavedChangesDialog from "../ui/UnsavedChangesDialog";
+import { useUnsavedChangesWarning } from "../../hooks/useUnsavedChangesWarning";
 import type { Profile } from "../../types";
+import { getFriendlyError } from "../../lib/errors";
 import {
   uploadProfilePhoto,
   deleteProfilePhoto,
   uploadResume,
   deleteResume,
   uploadCertificate,
+  deleteCertificate,
 } from "../../lib/uploads";
 import { useAuth } from "../../context/useAuth";
+
+function isEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 const JOB_CATEGORY_OPTIONS = [
   "hospitality",
@@ -139,21 +148,42 @@ export default function ProfileForm({
   const { currentUser } = useAuth();
   const [form, setForm] = useState(initialData);
   const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
   const [certUploadingId, setCertUploadingId] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   useEffect(() => {
     setForm(initialData);
   }, [initialData]);
+
+  const dirty = !isEqual(form, initialData);
+  const blocker = useUnsavedChangesWarning(dirty);
+
+  function requestRemove(
+    title: string,
+    message: string,
+    onConfirm: () => void,
+  ) {
+    setPendingRemove({ title, message, onConfirm });
+  }
 
   function setPersonalInfo(field: string, value: string) {
     setForm((prev) => ({
       ...prev,
       personalInfo: { ...prev.personalInfo, [field]: value },
     }));
+  }
+
+  function setHeadline(value: string) {
+    setForm((prev) => ({ ...prev, headline: value }));
   }
 
   function setLocation(field: string, value: string) {
@@ -242,6 +272,7 @@ export default function ProfileForm({
           fieldOfStudy: "",
           startYear: new Date().getFullYear(),
           endYear: new Date().getFullYear(),
+          currentlyStudying: false,
         },
       ],
     }));
@@ -277,11 +308,12 @@ export default function ProfileForm({
     if (!file || !currentUser) return;
     setPhotoUploading(true);
     setError(null);
+    setUploadError(null);
     try {
       const url = await uploadProfilePhoto(currentUser.uid, file);
       setForm((prev) => ({ ...prev, photoUrl: url }));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to upload photo.");
+      setUploadError(getFriendlyError(err, "We couldn't upload that photo. Please try again."));
     } finally {
       setPhotoUploading(false);
       e.target.value = "";
@@ -305,11 +337,12 @@ export default function ProfileForm({
     if (!file || !currentUser) return;
     setResumeUploading(true);
     setError(null);
+    setUploadError(null);
     try {
       const { url, name } = await uploadResume(currentUser.uid, file);
       setForm((prev) => ({ ...prev, resumeUrl: url, resumeName: name }));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to upload resume.");
+      setUploadError(getFriendlyError(err, "We couldn't upload that resume. Please try again."));
     } finally {
       setResumeUploading(false);
       e.target.value = "";
@@ -363,6 +396,7 @@ export default function ProfileForm({
     if (!file || !currentUser || !cert) return;
     setCertUploadingId(cert.id);
     setError(null);
+    setUploadError(null);
     try {
       const url = await uploadCertificate(currentUser.uid, cert.id, file);
       setForm((prev) => ({
@@ -372,14 +406,23 @@ export default function ProfileForm({
         ),
       }));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to upload certificate.");
+      setUploadError(getFriendlyError(err, "We couldn't upload that certificate. Please try again."));
     } finally {
       setCertUploadingId(null);
       e.target.value = "";
     }
   }
 
-  function removeCertificate(index: number) {
+  async function handleCertificateRemove(index: number) {
+    const cert = form.certificates[index];
+    if (!cert) return;
+    if (currentUser && cert.credentialUrl) {
+      try {
+        await deleteCertificate(currentUser.uid, cert.id);
+      } catch {
+        // ignore storage cleanup errors
+      }
+    }
     setForm((prev) => ({
       ...prev,
       certificates: prev.certificates.filter((_, i) => i !== index),
@@ -428,7 +471,7 @@ export default function ProfileForm({
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save profile.");
+      setError(getFriendlyError(err, "We couldn't save your profile. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -444,12 +487,22 @@ export default function ProfileForm({
       )}
 
       {/* Personal Information */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group" open>
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Personal Information"
           description="Basic details about you."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-4">
+          <FormField
+            label="Professional headline"
+            value={form.headline}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setHeadline(e.target.value)}
+            placeholder="e.g. Experienced barista looking for part-time shifts"
+            hint="A short line that tells employers who you are."
+          />
           <FormField
             label="Full name"
             value={form.personalInfo.fullName}
@@ -472,14 +525,17 @@ export default function ProfileForm({
             placeholder="+1 234 567 8900"
           />
         </div>
-      </section>
+      </details>
 
       {/* Profile Photo */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Profile Photo"
           description="A clear photo helps employers recognise you. JPEG, PNG, or WebP, max 500 KB."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-50">
             {form.photoUrl ? (
@@ -506,7 +562,13 @@ export default function ProfileForm({
             {form.photoUrl && (
               <button
                 type="button"
-                onClick={() => void handlePhotoRemove()}
+                onClick={() =>
+                  requestRemove(
+                    "Remove profile photo?",
+                    "This removes your current profile photo.",
+                    () => void handlePhotoRemove(),
+                  )
+                }
                 className="self-start text-sm text-red-600 hover:text-red-700 transition-colors"
               >
                 Remove photo
@@ -514,14 +576,22 @@ export default function ProfileForm({
             )}
           </div>
         </div>
-      </section>
+        {uploadError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-red-600">
+            {uploadError}
+          </p>
+        )}
+      </details>
 
       {/* Resume */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Resume"
-          description="PDF only, max 200 KB. Employers can view your resume when you apply."
+          description="PDF only, max 500 KB. Employers can view your resume when you apply."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-2">
           {form.resumeUrl ? (
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -539,7 +609,13 @@ export default function ProfileForm({
                 </a>
                 <button
                   type="button"
-                  onClick={() => void handleResumeRemove()}
+                  onClick={() =>
+                    requestRemove(
+                      "Remove resume?",
+                      "This removes your uploaded resume from your profile.",
+                      () => void handleResumeRemove(),
+                    )
+                  }
                   className="text-sm text-red-600 hover:text-red-700"
                   disabled={resumeUploading}
                 >
@@ -563,14 +639,22 @@ export default function ProfileForm({
             Your resume is only shown to employers after you apply for a job.
           </p>
         </div>
-      </section>
+        {uploadError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-red-600">
+            {uploadError}
+          </p>
+        )}
+      </details>
 
       {/* Certificates */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Certificates"
-          description="Add certifications relevant to the work you're looking for. Each can include a PDF file."
+          description="Add certifications relevant to the work you're looking for. Each can include a PDF file (max 500 KB)."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-4">
           {form.certificates.map((cert, i) => (
             <div
@@ -579,7 +663,15 @@ export default function ProfileForm({
             >
               <button
                 type="button"
-                onClick={() => removeCertificate(i)}
+                onClick={() =>
+                  requestRemove(
+                    "Remove certificate?",
+                    `This removes "${
+                      cert.name.trim() || "this certificate"
+                    }" and its uploaded file.`,
+                    () => void handleCertificateRemove(i),
+                  )
+                }
                 className="absolute right-3 top-3 rounded p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 aria-label={`Remove certificate ${i + 1}`}
               >
@@ -647,15 +739,23 @@ export default function ProfileForm({
           >
             + Add certificate
           </button>
+          {uploadError && (
+            <p role="alert" className="text-sm font-medium text-red-600">
+              {uploadError}
+            </p>
+          )}
         </div>
-      </section>
+      </details>
 
       {/* Portfolio */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Portfolio"
           description="Link to work samples, profiles, or personal projects."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-4">
           {form.portfolioLinks.map((item, i) => (
             <div
@@ -664,7 +764,13 @@ export default function ProfileForm({
             >
               <button
                 type="button"
-                onClick={() => removePortfolioLink(i)}
+                onClick={() =>
+                  requestRemove(
+                    "Remove this link?",
+                    `This removes "${item.title.trim() || "this link"}" from your profile.`,
+                    () => removePortfolioLink(i),
+                  )
+                }
                 className="absolute right-3 top-3 rounded p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 aria-label={`Remove portfolio link ${i + 1}`}
               >
@@ -705,14 +811,17 @@ export default function ProfileForm({
             + Add link
           </button>
         </div>
-      </section>
+      </details>
 
       {/* Skills */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Skills"
           description="Add skills that are relevant to the work you're looking for."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-3">
           {form.skills.map((skill, i) => (
             <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -746,7 +855,13 @@ export default function ProfileForm({
               </div>
               <button
                 type="button"
-                onClick={() => removeSkill(i)}
+                onClick={() =>
+                  requestRemove(
+                    "Remove this skill?",
+                    `This removes "${skill.name.trim() || "this skill"}" from your profile.`,
+                    () => removeSkill(i),
+                  )
+                }
                 className="shrink-0 rounded-lg border border-neutral-200 p-2.5 text-neutral-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                 aria-label={`Remove skill ${skill.name || i + 1}`}
               >
@@ -764,14 +879,17 @@ export default function ProfileForm({
             + Add skill
           </button>
         </div>
-      </section>
+      </details>
 
       {/* Experience */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Work Experience"
           description="Relevant work experience."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-6">
           {form.experience.map((exp, i) => (
             <div
@@ -780,7 +898,13 @@ export default function ProfileForm({
             >
               <button
                 type="button"
-                onClick={() => removeExperience(i)}
+                onClick={() =>
+                  requestRemove(
+                    "Remove this experience?",
+                    `This removes "${exp.role.trim() || "this entry"}" from your profile.`,
+                    () => removeExperience(i),
+                  )
+                }
                 className="absolute right-3 top-3 rounded p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 aria-label={`Remove experience ${i + 1}`}
               >
@@ -856,14 +980,17 @@ export default function ProfileForm({
             + Add experience
           </button>
         </div>
-      </section>
+      </details>
 
       {/* Education */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Education"
           description="Your educational background."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-6">
           {form.education.map((edu, i) => (
             <div
@@ -872,7 +999,15 @@ export default function ProfileForm({
             >
               <button
                 type="button"
-                onClick={() => removeEducation(i)}
+                onClick={() =>
+                  requestRemove(
+                    "Remove this education?",
+                    `This removes "${
+                      edu.institution.trim() || "this entry"
+                    }" from your profile.`,
+                    () => removeEducation(i),
+                  )
+                }
                 className="absolute right-3 top-3 rounded p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 aria-label={`Remove education ${i + 1}`}
               >
@@ -916,15 +1051,28 @@ export default function ProfileForm({
                       updateEducation(i, "startYear", Number(e.target.value))
                     }
                   />
-                  <FormField
-                    label="End year"
-                    type="number"
-                    value={String(edu.endYear)}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      updateEducation(i, "endYear", Number(e.target.value))
-                    }
-                  />
+                  {!edu.currentlyStudying && (
+                    <FormField
+                      label="End year"
+                      type="number"
+                      value={String(edu.endYear)}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                        updateEducation(i, "endYear", Number(e.target.value))
+                      }
+                    />
+                  )}
                 </div>
+                <label className="flex items-center gap-2 text-sm text-neutral-600">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(edu.currentlyStudying)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      updateEducation(i, "currentlyStudying", e.target.checked)
+                    }
+                    className="h-4 w-4 rounded border-neutral-300 accent-primary-600"
+                  />
+                  Currently studying
+                </label>
               </div>
             </div>
           ))}
@@ -936,14 +1084,17 @@ export default function ProfileForm({
             + Add education
           </button>
         </div>
-      </section>
+      </details>
 
       {/* Availability */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Availability"
           description="Set your available hours for each day."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-3">
           {form.availability.map((slot, i) => (
             <div
@@ -969,14 +1120,17 @@ export default function ProfileForm({
             </div>
           ))}
         </div>
-      </section>
+      </details>
 
       {/* Work Preferences */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Work Preferences"
           description="Select the types of work you're interested in."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-6">
           <div>
             <label className="mb-2 block text-sm font-medium text-neutral-700">
@@ -1001,14 +1155,17 @@ export default function ProfileForm({
             />
           </div>
         </div>
-      </section>
+      </details>
 
       {/* Location */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Preferred Location"
           description="Where you'd prefer to work."
         />
+        <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+        </summary>
         <div className="flex flex-col gap-4 sm:grid sm:grid-cols-3">
           <FormField
             label="City"
@@ -1029,7 +1186,7 @@ export default function ProfileForm({
             placeholder="e.g. India"
           />
         </div>
-      </section>
+      </details>
 
       {/* Actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -1048,6 +1205,19 @@ export default function ProfileForm({
               : "Save Changes"}
         </SubmitButton>
       </div>
+
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        title={pendingRemove?.title ?? "Confirm removal"}
+        message={pendingRemove?.message ?? ""}
+        onConfirm={() => {
+          if (pendingRemove) pendingRemove.onConfirm();
+          setPendingRemove(null);
+        }}
+        onCancel={() => setPendingRemove(null)}
+      />
+
+      <UnsavedChangesDialog blocker={blocker} busy={saving} />
     </form>
   );
 }

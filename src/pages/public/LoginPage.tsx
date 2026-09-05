@@ -5,6 +5,7 @@ import { useAuth } from "../../context/useAuth";
 import { loginWithEmail } from "../../lib/auth";
 import { getAuthErrorMessage } from "../../lib/authErrors";
 import { getRoleHomePath } from "../../lib/roles";
+import type { UserRole } from "../../types";
 import FormField, { FormError, SubmitButton } from "../../components/ui/FormField";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -23,7 +24,20 @@ export default function LoginPage() {
   const [pending, setPending] = useState(false);
 
   const from =
-    (location.state as { from?: string } | null)?.from ?? "/";
+    (location.state as { from?: string } | null)?.from ?? "";
+
+  function resolveDestination(role: UserRole | null): string {
+    const home = getRoleHomePath(role);
+    if (!from || from === "/" || from.startsWith("/login")) {
+      return home;
+    }
+    const homePrefix = home.split("/").filter(Boolean)[0] ?? "";
+    const fromPrefix = from.split("/").filter(Boolean)[0] ?? "";
+    if (!homePrefix || fromPrefix === homePrefix) {
+      return from;
+    }
+    return home;
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -47,7 +61,7 @@ export default function LoginPage() {
     try {
       await loginWithEmail(email.trim(), password);
       const role = await resolveRole();
-      navigate(getRoleHomePath(role), { replace: true });
+      navigate(resolveDestination(role), { replace: true });
     } catch (err) {
       setError(getAuthErrorMessage(err));
     } finally {

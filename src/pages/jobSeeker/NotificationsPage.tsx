@@ -82,7 +82,7 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         <div className="h-8 w-48 bg-neutral-200 rounded mb-8 animate-pulse" />
         <div className="flex flex-col gap-3">
           {[1, 2, 3].map((i) => (
@@ -94,7 +94,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
       <JobSeekerNav />
       <div className="mt-6 mb-6 flex items-center justify-between">
         <div>

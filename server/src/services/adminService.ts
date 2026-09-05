@@ -1,8 +1,9 @@
 import { FieldValue } from "firebase-admin/firestore";
-import { getAdminFirestore } from "../config/firebaseAdmin.js";
+import { getAdminFirestore, getAdminAuth } from "../config/firebaseAdmin.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { AccountStatus } from "../types/admin.js";
 import type { Role } from "../types/auth.js";
+import { MAX_IN_MEMORY_FETCH, sortDocsDesc } from "./queryInMemory.js";
 
 const USERS = "users";
 
@@ -116,26 +117,23 @@ export async function getUsers(params: {
   const db = getAdminFirestore();
   const { role, status, search, limit = 20, offset = 0 } = params;
 
-  let query: FirebaseFirestore.Query = db.collection(USERS);
-
-  if (role && role !== "all") {
-    query = query.where("role", "==", role);
-  }
-  if (status && status !== "all") {
-    query = query.where("status", "==", status);
-  }
-
-  const countSnap = await query.count().get();
-  const total = countSnap.data().count;
-
-  const snapshot = await query
-    .orderBy("createdAt", "desc")
-    .limit(offset + limit)
+  const snapshot = await db
+    .collection(USERS)
+    .limit(MAX_IN_MEMORY_FETCH)
     .get();
 
-  let users = snapshot.docs.map((doc) =>
+  const docs = sortDocsDesc(snapshot.docs, "createdAt");
+
+  let users = docs.map((doc) =>
     serializeUser(doc.id, doc.data() as AdminUserDocument),
   );
+
+  if (role && role !== "all") {
+    users = users.filter((u) => u.role === role);
+  }
+  if (status && status !== "all") {
+    users = users.filter((u) => u.status === status);
+  }
 
   if (search && search.trim().length > 0) {
     const lower = search.toLowerCase().trim();
@@ -148,7 +146,7 @@ export async function getUsers(params: {
 
   return {
     users: users.slice(offset, offset + limit),
-    total,
+    total: users.length,
   };
 }
 
@@ -162,6 +160,61 @@ export async function getUserById(uid: string): Promise<AdminUserResponse> {
   }
 
   return serializeUser(snapshot.id, snapshot.data() as AdminUserDocument);
+}
+
+export interface CreateAdminParams {
+  email: string;
+  password: string;
+  displayName?: string;
+}
+
+export async function createAdmin(params: CreateAdminParams): Promise<AdminUserResponse> {
+  const db = getAdminFirestore();
+  const auth = getAdminAuth();
+
+  const normalizedEmail = params.email.trim().toLowerCase();
+
+  const existing = await auth.getUserByEmail(normalizedEmail).catch(() => null);
+  if (existing) {
+    throw new AppError(409, "A user with this email already exists.");
+  }
+
+  const record = await auth.createUser({
+    email: normalizedEmail,
+    password: params.password,
+    displayName: params.displayName?.trim() || undefined,
+    emailVerified: true,
+  });
+
+  await auth.setCustomUserClaims(record.uid, { role: "admin" });
+
+  const now = FieldValue.serverTimestamp();
+  await db.collection(USERS).doc(record.uid).set(
+    {
+      uid: record.uid,
+      email: normalizedEmail,
+      role: "admin",
+      status: "active",
+      suspendedAt: null,
+      suspensionReason: null,
+      suspendedBy: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+
+  return {
+    uid: record.uid,
+    email: normalizedEmail,
+    role: "admin" as Role,
+    status: "active" as AccountStatus,
+    suspendedAt: null,
+    suspensionReason: null,
+    suspendedBy: null,
+    createdAt: null,
+    updatedAt: null,
+  };
 }
 
 export async function suspendUser(

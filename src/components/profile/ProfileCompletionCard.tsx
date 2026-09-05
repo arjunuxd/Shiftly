@@ -23,6 +23,12 @@ export default function ProfileCompletionCard() {
       hint: "Tell employers who you are.",
     },
     {
+      label: "Headline",
+      done: Boolean(p.headline?.trim()),
+      to: "/job-seeker/profile/edit",
+      hint: "A short line about your work.",
+    },
+    {
       label: "Profile photo",
       done: Boolean(p.photoUrl),
       to: "/job-seeker/profile/edit",
@@ -62,7 +68,7 @@ export default function ProfileCompletionCard() {
       label: "Resume",
       done: Boolean(p.resumeUrl),
       to: "/job-seeker/profile/edit",
-      hint: "PDF up to 200 KB.",
+      hint: "PDF up to 500 KB.",
     },
     {
       label: "Certificates",

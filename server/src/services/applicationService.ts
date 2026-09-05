@@ -8,6 +8,7 @@ import type {
 } from "../types/application.js";
 import { getJob } from "./jobService.js";
 import { createNotification } from "./notificationService.js";
+import { MAX_IN_MEMORY_FETCH, sortDocsDesc } from "./queryInMemory.js";
 
 const COLLECTION = "applications";
 
@@ -123,10 +124,11 @@ export async function getApplicationsForJobSeeker(
   const snapshot = await db
     .collection(COLLECTION)
     .where("jobSeekerId", "==", jobSeekerId)
-    .orderBy("createdAt", "desc")
+    .limit(MAX_IN_MEMORY_FETCH)
     .get();
 
-  const apps = snapshot.docs.map((doc) =>
+  const docs = sortDocsDesc(snapshot.docs, "createdAt");
+  const apps = docs.map((doc) =>
     serializeApplication(doc.id, doc.data() as ApplicationDocument),
   );
 

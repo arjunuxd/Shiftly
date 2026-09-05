@@ -5,10 +5,19 @@ import { useProfile } from "../../context/useProfile";
 import {
   getVerification,
   submitVerification as apiSubmitVerification,
+  removeVerification as apiRemoveVerification,
+  getVerificationDocument,
+  saveVerificationDocument,
+  deleteVerificationDocument,
 } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
-import type { VerificationRecord } from "../../types";
+import type { VerificationRecord, VerificationDocumentRecord } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import VerificationDocumentUpload, {
+  type VerificationDocumentValue,
+} from "../../components/verification/VerificationDocumentUpload";
+import { getFriendlyError } from "../../lib/errors";
 
 function StatusIcon({ status }: { status: string }) {
   if (status === "approved") {
@@ -54,10 +63,15 @@ export default function JobSeekerVerifyPage() {
   const [verification, setVerification] = useState<VerificationRecord | null>(
     null,
   );
+  const [documentRecord, setDocumentRecord] = useState<VerificationDocumentRecord | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     void fetchProfile();
@@ -69,9 +83,14 @@ export default function JobSeekerVerifyPage() {
     setLoading(true);
 
     getCurrentIdToken()
-      .then((token) => getVerification(token))
-      .then((v) => {
-        if (active) setVerification(v);
+      .then((token) =>
+        Promise.all([getVerification(token), getVerificationDocument(token)]),
+      )
+      .then(([v, doc]) => {
+        if (active) {
+          setVerification(v);
+          setDocumentRecord(doc);
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -83,6 +102,22 @@ export default function JobSeekerVerifyPage() {
     };
   }, [currentUser]);
 
+  async function handleSaveDocument(doc: {
+    documentUrl: string;
+    documentName: string;
+    documentSize: number;
+  }) {
+    const token = await getCurrentIdToken();
+    const saved = await saveVerificationDocument(token, doc);
+    setDocumentRecord(saved);
+  }
+
+  async function handleRemoveDocument() {
+    const token = await getCurrentIdToken();
+    await deleteVerificationDocument(token);
+    setDocumentRecord(null);
+  }
+
   async function handleSubmit() {
     setError(null);
     setSuccess(false);
@@ -92,26 +127,57 @@ export default function JobSeekerVerifyPage() {
       const token = await getCurrentIdToken();
       const result = await apiSubmitVerification(token);
       setVerification(result);
+      const doc = await getVerificationDocument(token);
+      setDocumentRecord(doc);
       setSuccess(true);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : "Failed to submit verification.",
+        getFriendlyError(err, "We couldn't submit your verification. Please try again."),
       );
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function confirmRemove() {
+    if (!currentUser) return;
+    setRemoving(true);
+    setError(null);
+    try {
+      const token = await getCurrentIdToken();
+      await apiRemoveVerification(token);
+      const fresh = await getVerification(token);
+      setVerification(fresh);
+      setDocumentRecord(null);
+      setRemoveOpen(false);
+      setSuccess(false);
+    } catch (err: unknown) {
+      setError(
+        getFriendlyError(err, "We couldn't remove your verification. Please try again."),
+      );
+      setRemoveOpen(false);
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   const status = verification?.status ?? "unverified";
+  const documentValue: VerificationDocumentValue | null = documentRecord
+    ? {
+        documentUrl: documentRecord.documentUrl,
+        documentName: documentRecord.documentName,
+        documentMime: documentRecord.documentMime,
+      }
+    : null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
+    <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
       <div className="mb-6">
         <Link
           to="/job-seeker"
           className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
         >
-          &larr; Dashboard
+          &larr; Home
         </Link>
         <h1 className="mt-2 text-3xl font-bold text-neutral-900">
           Identity Verification
@@ -137,6 +203,16 @@ export default function JobSeekerVerifyPage() {
                 Your identity has been verified. This badge is visible to
                 employers.
               </p>
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setRemoveOpen(true)}
+                  disabled={removing}
+                  className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-red-300 hover:text-red-700 disabled:opacity-60"
+                >
+                  Remove verified badge
+                </button>
+              </div>
             </>
           )}
 
@@ -165,9 +241,19 @@ export default function JobSeekerVerifyPage() {
                 </div>
               )}
               <p className="text-neutral-500 mb-6">
-                Your verification could not be approved. Please check your
-                information and resubmit.
+                Your verification could not be approved. Please upload a valid
+                document and resubmit.
               </p>
+              <div className="mb-6">
+                <VerificationDocumentUpload
+                  label="Identity document"
+                  hint="A clear photo or scan of a valid government-issued photo ID."
+                  value={documentValue}
+                  onSave={handleSaveDocument}
+                  onRemove={handleRemoveDocument}
+                  disabled={submitting}
+                />
+              </div>
               {error && (
                 <div className="mb-4">
                   <FriendlyAlert icon="error" title="We couldn't resubmit">
@@ -185,11 +271,16 @@ export default function JobSeekerVerifyPage() {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={submitting}
+                disabled={submitting || !documentRecord}
                 className="inline-flex items-center rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
               >
                 {submitting ? "Submitting..." : "Resubmit Verification"}
               </button>
+              {!documentRecord && (
+                <p className="mt-3 text-xs text-neutral-400">
+                  Please upload a document before resubmitting.
+                </p>
+              )}
             </>
           )}
 
@@ -208,9 +299,19 @@ export default function JobSeekerVerifyPage() {
                 </p>
                 <ul className="text-sm text-neutral-500 space-y-1">
                   <li>• A valid government-issued photo ID</li>
-                  <li>• Your name must match your profile</li>
                   <li>• The document must not be expired</li>
+                  <li>• JPG, PNG, WEBP, or PDF up to 500 KB</li>
                 </ul>
+              </div>
+              <div className="mb-6">
+                <VerificationDocumentUpload
+                  label="Identity document"
+                  hint="A clear photo or scan of a valid government-issued photo ID."
+                  value={documentValue}
+                  onSave={handleSaveDocument}
+                  onRemove={handleRemoveDocument}
+                  disabled={submitting}
+                />
               </div>
               {error && (
                 <div className="mb-4">
@@ -229,7 +330,7 @@ export default function JobSeekerVerifyPage() {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={submitting || !profile}
+                disabled={submitting || !profile || !documentRecord}
                 className="inline-flex items-center rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
               >
                 {submitting ? "Submitting..." : "Submit for Verification"}
@@ -239,10 +340,25 @@ export default function JobSeekerVerifyPage() {
                   Please complete your profile before submitting for verification.
                 </p>
               )}
+              {profile && !documentRecord && (
+                <p className="mt-3 text-xs text-neutral-400">
+                  Please upload a valid document before submitting for verification.
+                </p>
+              )}
             </>
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={removeOpen}
+        title="Remove your verified badge?"
+        message="Your verification will be removed and you'll need to submit it again for approval. Your profile stays active."
+        confirmLabel="Remove verification"
+        busy={removing}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setRemoveOpen(false)}
+      />
     </div>
   );
 }

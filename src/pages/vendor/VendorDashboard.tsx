@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import { useVendorProfile } from "../../context/useVendorProfile";
 import { VerificationBadge } from "../../components/vendor/VendorProfileDisplay";
+import VendorNav from "../../components/vendor/VendorNav";
 import { getMyJobs, getVendorVerification, getConversations } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import type { Job } from "../../types";
@@ -74,13 +75,16 @@ export default function VendorDashboard() {
   const draftCount = jobs.filter((j) => j.status === "draft").length;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-        Vendor Dashboard
-      </h1>
-      <p className="text-neutral-500 mb-8">
-        Manage your business profile and job listings.
-      </p>
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <VendorNav />
+      <div className="mt-6 mb-8">
+        <h1 className="text-3xl font-bold text-neutral-900">
+          Home
+        </h1>
+        <p className="text-neutral-500 mt-1">
+          Manage your business profile and job listings.
+        </p>
+      </div>
 
       <div className="flex flex-col gap-6">
         {/* Profile Card */}

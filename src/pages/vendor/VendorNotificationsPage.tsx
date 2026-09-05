@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import NotificationList from "../../components/notifications/NotificationList";
+import VendorNav from "../../components/vendor/VendorNav";
 import type { AppNotification } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
 
@@ -81,7 +82,7 @@ export default function VendorNotificationsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         <div className="h-8 w-48 bg-neutral-200 rounded mb-8 animate-pulse" />
         <div className="flex flex-col gap-3">
           {[1, 2, 3].map((i) => (
@@ -93,8 +94,9 @@ export default function VendorNotificationsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <VendorNav />
+      <div className="mt-6 mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-neutral-900 mb-1">Notifications</h1>
           <p className="text-neutral-500">

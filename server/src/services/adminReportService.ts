@@ -2,6 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "../config/firebaseAdmin.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { ReportStatus } from "../types/report.js";
+import { MAX_IN_MEMORY_FETCH, sortDocsDesc } from "./queryInMemory.js";
 
 const COLLECTION = "reports";
 
@@ -114,25 +115,22 @@ export async function getReports(params: {
   const db = getAdminFirestore();
   const { status, limit = 20, offset = 0 } = params;
 
-  let query: FirebaseFirestore.Query = db.collection(COLLECTION);
-
-  if (status && status !== "all") {
-    query = query.where("status", "==", status);
-  }
-
-  const countSnap = await query.count().get();
-  const total = countSnap.data().count;
-
-  const snapshot = await query
-    .orderBy("createdAt", "desc")
-    .limit(offset + limit)
+  const snapshot = await db
+    .collection(COLLECTION)
+    .limit(MAX_IN_MEMORY_FETCH)
     .get();
 
-  const reports = snapshot.docs.map(serializeReport);
+  const docs = sortDocsDesc(snapshot.docs, "createdAt");
+
+  let reports = docs.map(serializeReport);
+
+  if (status && status !== "all") {
+    reports = reports.filter((r) => r.status === status);
+  }
 
   return {
     reports: reports.slice(offset, offset + limit),
-    total,
+    total: reports.length,
   };
 }
 

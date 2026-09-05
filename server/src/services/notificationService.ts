@@ -6,6 +6,7 @@ import type {
   NotificationType,
   NotificationListResponse,
 } from "../types/notification.js";
+import { MAX_IN_MEMORY_FETCH, sortDocsDesc } from "./queryInMemory.js";
 
 const COLLECTION = "notifications";
 const PAGE_SIZE = 20;
@@ -76,45 +77,36 @@ export async function getNotifications(
   pageToken?: string,
 ): Promise<NotificationListResponse> {
   const db = getAdminFirestore();
-  let query = db
+  const snapshot = await db
     .collection(COLLECTION)
     .where("recipientId", "==", userId)
-    .orderBy("createdAt", "desc");
+    .limit(MAX_IN_MEMORY_FETCH)
+    .get();
 
-  const fetchLimit = PAGE_SIZE + 1;
-
-  if (pageToken) {
-    const startDoc = await db.collection(COLLECTION).doc(pageToken).get();
-    if (startDoc.exists) {
-      query = query.startAfter(startDoc);
-    }
-  }
-
-  query = query.limit(fetchLimit);
-
-  const snapshot = await query.get();
-  let notifications = snapshot.docs.map((doc) =>
+  const docs = sortDocsDesc(snapshot.docs, "createdAt");
+  const all = docs.map((doc) =>
     serializeNotification(doc.id, doc.data() as NotificationDocument),
   );
 
-  const hasMore = notifications.length > PAGE_SIZE;
-  if (hasMore) {
-    notifications = notifications.slice(0, PAGE_SIZE);
+  let startIndex = 0;
+  if (pageToken) {
+    const cursorIndex = all.findIndex((n) => n.id === pageToken);
+    if (cursorIndex !== -1) {
+      startIndex = cursorIndex + 1;
+    }
   }
 
-  const lastDoc = snapshot.docs[hasMore ? PAGE_SIZE - 1 : snapshot.docs.length - 1];
-  const nextPageToken = hasMore && lastDoc ? lastDoc.id : null;
-
-  const unreadSnapshot = await db
-    .collection(COLLECTION)
-    .where("recipientId", "==", userId)
-    .where("read", "==", false)
-    .count()
-    .get();
+  const notifications = all.slice(startIndex, startIndex + PAGE_SIZE);
+  const hasMore = startIndex + PAGE_SIZE < all.length;
+  const nextPageToken =
+    hasMore && notifications.length > 0
+      ? notifications[notifications.length - 1].id
+      : null;
+  const unreadCount = all.filter((n) => n.read === false).length;
 
   return {
     notifications,
-    unreadCount: unreadSnapshot.data().count,
+    unreadCount,
     nextPageToken,
     hasMore,
   };
@@ -125,11 +117,16 @@ export async function getUnreadCount(userId: string): Promise<number> {
   const snapshot = await db
     .collection(COLLECTION)
     .where("recipientId", "==", userId)
-    .where("read", "==", false)
-    .count()
+    .limit(MAX_IN_MEMORY_FETCH)
     .get();
 
-  return snapshot.data().count;
+  let count = 0;
+  for (const doc of snapshot.docs) {
+    if (doc.data().read === false) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 export async function markNotificationAsRead(

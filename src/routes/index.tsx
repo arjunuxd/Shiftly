@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { createBrowserRouter, useLocation } from "react-router-dom";
+import { createBrowserRouter, useLocation, Outlet } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import AdminLayout from "../layouts/AdminLayout";
 import HomePage from "../pages/public/HomePage";
@@ -33,10 +33,12 @@ import VendorJobsPage from "../pages/vendor/VendorJobsPage";
 import VendorJobCreatePage from "../pages/vendor/VendorJobCreatePage";
 import VendorJobEditPage from "../pages/vendor/VendorJobEditPage";
 import VendorJobApplicantsPage from "../pages/vendor/VendorJobApplicantsPage";
+import VendorApplicantProfilePage from "../pages/vendor/VendorApplicantProfilePage";
 import VendorMessagingPage from "../pages/vendor/VendorMessagingPage";
 import VendorNotificationsPage from "../pages/vendor/VendorNotificationsPage";
 import SuperadminDashboard from "../pages/admin/SuperadminDashboard";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
+import AdminAdminsPage from "../pages/admin/AdminAdminsPage";
 import AdminJobsPage from "../pages/admin/AdminJobsPage";
 import AdminVerificationsPage from "../pages/admin/AdminVerificationsPage";
 import AdminReportsPage from "../pages/admin/AdminReportsPage";
@@ -79,14 +81,6 @@ function VendorLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function AdminRoute({ children }: { children: ReactNode }) {
-  return (
-    <RoleRoute role="superadmin">
-      <AdminLayout>{children}</AdminLayout>
-    </RoleRoute>
-  );
-}
-
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -107,7 +101,7 @@ export const router = createBrowserRouter([
       { path: "contact", element: <ContactPage /> },
       { path: "privacy", element: <PrivacyPage /> },
       { path: "terms", element: <TermsPage /> },
-      { path: "jobs", element: <JobDiscoveryPage /> },
+      { path: "jobs", element: <ProfileProvider><JobDiscoveryPage /></ProfileProvider> },
       {
         path: "jobs/:jobId",
         element: (
@@ -193,6 +187,10 @@ export const router = createBrowserRouter([
         element: <VendorLayout><VendorJobApplicantsPage /></VendorLayout>,
       },
       {
+        path: "vendor/applicants/:applicationId",
+        element: <VendorLayout><VendorApplicantProfilePage /></VendorLayout>,
+      },
+      {
         path: "vendor/messages",
         element: <VendorLayout><VendorMessagingPage /></VendorLayout>,
       },
@@ -200,27 +198,31 @@ export const router = createBrowserRouter([
         path: "vendor/notifications",
         element: <VendorLayout><VendorNotificationsPage /></VendorLayout>,
       },
-      {
-        path: "admin",
-        element: <AdminRoute><SuperadminDashboard /></AdminRoute>,
-      },
-      {
-        path: "admin/users",
-        element: <AdminRoute><AdminUsersPage /></AdminRoute>,
-      },
-      {
-        path: "admin/jobs",
-        element: <AdminRoute><AdminJobsPage /></AdminRoute>,
-      },
-      {
-        path: "admin/verifications",
-        element: <AdminRoute><AdminVerificationsPage /></AdminRoute>,
-      },
-      {
-        path: "admin/reports",
-        element: <AdminRoute><AdminReportsPage /></AdminRoute>,
-      },
       { path: "*", element: <NotFoundPage /> },
+    ],
+  },
+  {
+    path: "/admin",
+    element: (
+      <>
+        <ScrollToTop />
+        <RoleRoute role={["admin", "superadmin"]}>
+          <AdminLayout>
+            <Outlet />
+          </AdminLayout>
+        </RoleRoute>
+      </>
+    ),
+    children: [
+      { index: true, element: <SuperadminDashboard /> },
+      { path: "users", element: <AdminUsersPage /> },
+      { path: "jobs", element: <AdminJobsPage /> },
+      { path: "verifications", element: <AdminVerificationsPage /> },
+      { path: "reports", element: <AdminReportsPage /> },
+      {
+        path: "admins",
+        element: <RoleRoute role="superadmin"><AdminAdminsPage /></RoleRoute>,
+      },
     ],
   },
 ]);

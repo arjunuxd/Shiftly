@@ -58,7 +58,7 @@ export function getCurrentIdToken(): Promise<string> {
   if (!currentUser) {
     return Promise.reject(new Error("No authenticated user"));
   }
-  return currentUser.getIdToken();
+  return currentUser.getIdToken(true).catch(() => currentUser.getIdToken());
 }
 
 export function subscribeToAuthState(

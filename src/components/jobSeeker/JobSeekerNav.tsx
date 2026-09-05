@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
 
 const LINKS = [
-  { to: "/job-seeker", label: "Dashboard" },
-  { to: "/job-seeker/profile", label: "Profile" },
+  { to: "/job-seeker", label: "Home" },
+  { to: "/jobs", label: "Jobs" },
   { to: "/job-seeker/applications", label: "Applications" },
   { to: "/job-seeker/messages", label: "Messages" },
   { to: "/job-seeker/notifications", label: "Notifications" },
+  { to: "/job-seeker/profile", label: "Profile" },
 ] as const;
 
 export default function JobSeekerNav() {
@@ -14,7 +15,11 @@ export default function JobSeekerNav() {
   return (
     <nav className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
       {LINKS.map((link) => {
-        const active = location.pathname === link.to;
+        const isHome = link.to === "/job-seeker";
+        const active = isHome
+          ? location.pathname === link.to
+          : location.pathname === link.to ||
+            location.pathname.startsWith(`${link.to}/`);
         return (
           <Link
             key={link.to}

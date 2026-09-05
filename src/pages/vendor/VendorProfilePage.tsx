@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useVendorProfile } from "../../context/useVendorProfile";
 import VendorProfileDisplay from "../../components/vendor/VendorProfileDisplay";
+import VendorNav from "../../components/vendor/VendorNav";
 import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function VendorProfilePage() {
@@ -42,16 +43,11 @@ export default function VendorProfilePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <VendorNav />
+      <div className="mt-6 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link
-            to="/vendor"
-            className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
-          >
-            &larr; Dashboard
-          </Link>
-          <h1 className="mt-2 text-3xl font-bold text-neutral-900">Your Business Profile</h1>
+          <h1 className="text-3xl font-bold text-neutral-900">Your Business Profile</h1>
         </div>
         <Link
           to="/vendor/profile/edit"

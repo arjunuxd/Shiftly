@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useProfile } from "../../context/useProfile";
 import ProfileDisplay from "../../components/profile/ProfileDisplay";
+import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
 import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function JobSeekerProfilePage() {
@@ -41,16 +42,11 @@ export default function JobSeekerProfilePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <JobSeekerNav />
+      <div className="mt-6 mb-6 flex items-center justify-between">
         <div>
-          <Link
-            to="/job-seeker"
-            className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
-          >
-            &larr; Dashboard
-          </Link>
-          <h1 className="mt-2 text-3xl font-bold text-neutral-900">Your Profile</h1>
+          <h1 className="text-3xl font-bold text-neutral-900">Your Profile</h1>
         </div>
         <Link
           to="/job-seeker/profile/edit"

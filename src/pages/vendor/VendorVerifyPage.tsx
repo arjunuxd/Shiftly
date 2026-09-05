@@ -2,6 +2,19 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useVendorProfile } from "../../context/useVendorProfile";
 import { FriendlyAlert } from "../../components/ui/FormField";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import VerificationDocumentUpload, {
+  type VerificationDocumentValue,
+} from "../../components/verification/VerificationDocumentUpload";
+import type { VerificationDocumentRecord } from "../../types";
+import {
+  getVendorVerificationDocument,
+  saveVendorVerificationDocument,
+  deleteVendorVerificationDocument,
+  removeVendorVerification as apiRemoveVendorVerification,
+} from "../../lib/api";
+import { getCurrentIdToken } from "../../lib/auth";
+import { getFriendlyError } from "../../lib/errors";
 
 function StatusIcon({ status }: { status: string }) {
   if (status === "approved") {
@@ -49,14 +62,48 @@ export default function VendorVerifyPage() {
     fetchProfile,
     submitVerification,
   } = useVendorProfile();
+  const [documentRecord, setDocumentRecord] = useState<VerificationDocumentRecord | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     void fetchProfile().finally(() => setLoading(false));
   }, [fetchProfile]);
+
+  useEffect(() => {
+    let active = true;
+    getCurrentIdToken()
+      .then((token) => getVendorVerificationDocument(token))
+      .then((doc) => {
+        if (active) setDocumentRecord(doc);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleSaveDocument(doc: {
+    documentUrl: string;
+    documentName: string;
+    documentSize: number;
+  }) {
+    const token = await getCurrentIdToken();
+    const saved = await saveVendorVerificationDocument(token, doc);
+    setDocumentRecord(saved);
+  }
+
+  async function handleRemoveDocument() {
+    const token = await getCurrentIdToken();
+    await deleteVendorVerificationDocument(token);
+    setDocumentRecord(null);
+  }
 
   async function handleSubmit() {
     setError(null);
@@ -69,23 +116,50 @@ export default function VendorVerifyPage() {
       setSuccess(true);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : "Failed to submit verification.",
+        getFriendlyError(err, "We couldn't submit your verification. Please try again."),
       );
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function confirmRemove() {
+    setRemoving(true);
+    setError(null);
+    try {
+      const token = await getCurrentIdToken();
+      await apiRemoveVendorVerification(token);
+      setDocumentRecord(null);
+      await fetchProfile();
+      setRemoveOpen(false);
+      setSuccess(false);
+    } catch (err: unknown) {
+      setError(
+        getFriendlyError(err, "We couldn't remove your verification. Please try again."),
+      );
+      setRemoveOpen(false);
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   const status = profile?.verification.status ?? verification?.status ?? "unverified";
+  const documentValue: VerificationDocumentValue | null = documentRecord
+    ? {
+        documentUrl: documentRecord.documentUrl,
+        documentName: documentRecord.documentName,
+        documentMime: documentRecord.documentMime,
+      }
+    : null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
+    <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
       <div className="mb-6">
         <Link
           to="/vendor"
           className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
         >
-          &larr; Dashboard
+          &larr; Home
         </Link>
         <h1 className="mt-2 text-3xl font-bold text-neutral-900">
           Business Verification
@@ -111,6 +185,16 @@ export default function VendorVerifyPage() {
                 Your business is verified. This badge increases trust with job
                 seekers and helps you attract applicants.
               </p>
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setRemoveOpen(true)}
+                  disabled={removing}
+                  className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-red-300 hover:text-red-700 disabled:opacity-60"
+                >
+                  Remove verified badge
+                </button>
+              </div>
             </>
           )}
 
@@ -131,17 +215,27 @@ export default function VendorVerifyPage() {
               <h2 className="text-xl font-semibold text-red-700 mb-2">
                 Verification rejected
               </h2>
-              {profile?.verification.rejectionReason && (
+              {(profile?.verification.rejectionReason ?? null) && (
                 <div className="mb-4">
                   <FriendlyAlert icon="error" title="Why it was rejected">
-                    {profile.verification.rejectionReason}
+                    {profile?.verification.rejectionReason}
                   </FriendlyAlert>
                 </div>
               )}
               <p className="text-neutral-500 mb-6">
-                Your business verification could not be approved. Please check
-                your information and resubmit.
+                Your business verification could not be approved. Please upload
+                a valid business document and resubmit.
               </p>
+              <div className="mb-6">
+                <VerificationDocumentUpload
+                  label="Business document"
+                  hint="A registration document, license, or other proof of your business."
+                  value={documentValue}
+                  onSave={handleSaveDocument}
+                  onRemove={handleRemoveDocument}
+                  disabled={submitting}
+                />
+              </div>
               {error && (
                 <div className="mb-4">
                   <FriendlyAlert icon="error" title="We couldn't resubmit">
@@ -159,11 +253,16 @@ export default function VendorVerifyPage() {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={submitting || !profile}
+                disabled={submitting || !profile || !documentRecord}
                 className="inline-flex items-center rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
               >
                 {submitting ? "Submitting..." : "Resubmit Verification"}
               </button>
+              {!documentRecord && (
+                <p className="mt-3 text-xs text-neutral-400">
+                  Please upload a document before resubmitting.
+                </p>
+              )}
             </>
           )}
 
@@ -182,9 +281,19 @@ export default function VendorVerifyPage() {
                 </p>
                 <ul className="text-sm text-neutral-500 space-y-1">
                   <li>• A complete business profile</li>
-                  <li>• Valid business registration details</li>
-                  <li>• A verifiable contact email or phone</li>
+                  <li>• A valid business registration document</li>
+                  <li>• JPG, PNG, WEBP, or PDF up to 500 KB</li>
                 </ul>
+              </div>
+              <div className="mb-6">
+                <VerificationDocumentUpload
+                  label="Business document"
+                  hint="A registration document, license, or other proof of your business."
+                  value={documentValue}
+                  onSave={handleSaveDocument}
+                  onRemove={handleRemoveDocument}
+                  disabled={submitting}
+                />
               </div>
               {error && (
                 <div className="mb-4">
@@ -203,7 +312,7 @@ export default function VendorVerifyPage() {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={submitting || !profile}
+                disabled={submitting || !profile || !documentRecord}
                 className="inline-flex items-center rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
               >
                 {submitting ? "Submitting..." : "Submit for Verification"}
@@ -214,10 +323,26 @@ export default function VendorVerifyPage() {
                   verification.
                 </p>
               )}
+              {profile && !documentRecord && (
+                <p className="mt-3 text-xs text-neutral-400">
+                  Please upload a valid business document before submitting for
+                  verification.
+                </p>
+              )}
             </>
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={removeOpen}
+        title="Remove your verified badge?"
+        message="Your business verification will be removed and you'll need to submit it again for approval. Your profile and listings stay active."
+        confirmLabel="Remove verification"
+        busy={removing}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setRemoveOpen(false)}
+      />
     </div>
   );
 }

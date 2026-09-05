@@ -5,6 +5,7 @@ import type {
   JobDiscoveryMeta,
   JobDiscoveryItem,
 } from "../types/jobDiscovery.js";
+import { MAX_IN_MEMORY_FETCH } from "./queryInMemory.js";
 
 const JOBS_COLLECTION = "jobs";
 const VENDOR_PROFILES_COLLECTION = "vendorProfiles";
@@ -91,9 +92,26 @@ function applyServerSideFilters(
   return result;
 }
 
+function locationScore(
+  job: JobResponse,
+  hint: { city?: string; state?: string },
+): number {
+  const jobCity = job.location.city.toLowerCase().trim();
+  const jobState = job.location.state.toLowerCase().trim();
+  const hintCity = (hint.city ?? "").toLowerCase().trim();
+  const hintState = (hint.state ?? "").toLowerCase().trim();
+  if (hintCity && hintState && jobCity === hintCity && jobState === hintState) return 0;
+  if (hintCity && jobCity === hintCity) return 1;
+  if (hintState && jobState === hintState) return 2;
+  if (hintCity && jobCity.includes(hintCity)) return 3;
+  if (hintState && jobState.includes(hintState)) return 4;
+  return 5;
+}
+
 function applySorting(
   jobs: JobResponse[],
   sortBy: string | undefined,
+  locationHint?: { city?: string; state?: string },
 ): JobResponse[] {
   const sorted = [...jobs];
 
@@ -104,6 +122,20 @@ function applySorting(
     case "pay-low":
       sorted.sort((a, b) => a.rateAmount - b.rateAmount);
       break;
+    case "location": {
+      const byNewest = (a: JobResponse, b: JobResponse) =>
+        (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
+      if (locationHint && (locationHint.city || locationHint.state)) {
+        sorted.sort((a, b) => {
+          const scoreDiff = locationScore(a, locationHint) - locationScore(b, locationHint);
+          if (scoreDiff !== 0) return scoreDiff;
+          return byNewest(a, b);
+        });
+      } else {
+        sorted.sort(byNewest);
+      }
+      break;
+    }
     case "newest":
     default:
       sorted.sort((a, b) => {
@@ -171,42 +203,36 @@ export async function getPublishedJobs(
   pageToken?: string,
 ): Promise<{ jobs: JobDiscoveryItem[]; meta: JobDiscoveryMeta }> {
   const db = getAdminFirestore();
-  let query = db
+
+  // Composite queries (equality + orderBy / inequality) require composite
+  // Firestore indexes. To avoid depending on manually-created indexes, fetch
+  // with a single-field equality filter and filter/sort/page in memory.
+  const snapshot = await db
     .collection(JOBS_COLLECTION)
     .where("status", "==", "published")
-    .where("moderationStatus", "!=", "removed")
-    .orderBy("publishedAt", "desc");
+    .limit(MAX_IN_MEMORY_FETCH)
+    .get();
+
+  let jobs: JobResponse[] = [];
+  for (const doc of snapshot.docs) {
+    const data = doc.data() as JobDocument & {
+      moderationStatus?: string;
+    };
+    if (data.moderationStatus === "removed") {
+      continue;
+    }
+    jobs.push(serializeJob(doc.id, data));
+  }
 
   if (filters.jobCategory) {
-    query = query.where("jobCategory", "==", filters.jobCategory);
+    jobs = jobs.filter((job) => job.jobCategory === filters.jobCategory);
   }
   if (filters.workType) {
-    query = query.where("workType", "==", filters.workType);
-  }
-
-  const fetchLimit = PAGE_SIZE + 1;
-
-  if (pageToken) {
-    const startDoc = await db.collection(JOBS_COLLECTION).doc(pageToken).get();
-    if (startDoc.exists) {
-      query = query.startAfter(startDoc);
-    }
-  }
-
-  query = query.limit(fetchLimit);
-
-  const snapshot = await query.get();
-  let jobs = snapshot.docs.map((doc) =>
-    serializeJob(doc.id, doc.data() as JobDocument),
-  );
-
-  const hasMore = jobs.length > PAGE_SIZE;
-  if (hasMore) {
-    jobs = jobs.slice(0, PAGE_SIZE);
+    jobs = jobs.filter((job) => job.workType === filters.workType);
   }
 
   jobs = applyServerSideFilters(jobs, filters);
-  jobs = applySorting(jobs, filters.sortBy);
+  jobs = applySorting(jobs, filters.sortBy, filters.locationHint);
 
   const vendIds = new Set(jobs.map((job) => job.vendorId));
   const verificationMap = await getVerificationMap(vendIds);
@@ -219,14 +245,24 @@ export async function getPublishedJobs(
     );
   }
 
-  const lastDoc = snapshot.docs[hasMore ? PAGE_SIZE - 1 : snapshot.docs.length - 1];
-  const nextPageToken = hasMore && lastDoc ? lastDoc.id : null;
+  let startIndex = 0;
+  if (pageToken) {
+    const cursorIndex = publicJobs.findIndex((job) => job.id === pageToken);
+    if (cursorIndex !== -1) {
+      startIndex = cursorIndex + 1;
+    }
+  }
+
+  const page = publicJobs.slice(startIndex, startIndex + PAGE_SIZE);
+  const hasMore = startIndex + PAGE_SIZE < publicJobs.length;
+  const nextPageToken =
+    hasMore && page.length > 0 ? page[page.length - 1].id : null;
 
   return {
-    jobs: publicJobs,
+    jobs: page,
     meta: {
-      totalEstimate: publicJobs.length,
-      hasMore: hasMore || publicJobs.length === PAGE_SIZE,
+      totalEstimate: page.length,
+      hasMore,
       nextPageToken,
     },
   };

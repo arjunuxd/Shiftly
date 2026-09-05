@@ -3,6 +3,7 @@ import type { UserRole } from "../types";
 export const ROLE_HOME_PATH: Record<UserRole, string> = {
   job_seeker: "/job-seeker",
   vendor: "/vendor",
+  admin: "/admin",
   superadmin: "/admin",
 };
 

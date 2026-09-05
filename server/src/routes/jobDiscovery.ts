@@ -36,7 +36,7 @@ const VALID_WORK_TYPES = [
 
 const VALID_RATE_TYPES = ["hourly", "daily", "fixed"];
 
-const VALID_SORT = ["newest", "pay-high", "pay-low"];
+const VALID_SORT = ["newest", "pay-high", "pay-low", "location"];
 
 const router = Router();
 
@@ -57,6 +57,22 @@ router.get(
     const sortBy = validateEnumParam(req.query.sortBy, VALID_SORT) ?? "newest";
     const pageToken = validatePageToken(req.query.pageToken);
 
+    let locationHint:
+      | { city?: string; state?: string }
+      | undefined;
+
+    if (sortBy === "location") {
+      const hintCity = validateSearchParam(req.query.locationCity);
+      const hintState = validateSearchParam(req.query.locationState);
+
+      if (hintCity || hintState) {
+        locationHint = {
+          ...(hintCity && { city: hintCity }),
+          ...(hintState && { state: hintState }),
+        };
+      }
+    }
+
     const filters = {
       ...(search && { search }),
       ...(jobCategory && { jobCategory }),
@@ -67,7 +83,8 @@ router.get(
       ...(state && { state }),
       ...(area && { area }),
       ...(verifiedOnly && { verifiedOnly: true }),
-      sortBy: sortBy as "newest" | "pay-high" | "pay-low",
+      sortBy: sortBy as "newest" | "pay-high" | "pay-low" | "location",
+      ...(locationHint && { locationHint }),
     };
 
     const result = await getPublishedJobs(filters, pageToken);

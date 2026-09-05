@@ -51,6 +51,9 @@ function EmployerPreview({ p }: { p: Profile }) {
           <p className="text-xl font-bold text-neutral-900">
             {p.personalInfo.fullName || "Unnamed Candidate"}
           </p>
+          {p.headline && (
+            <p className="mt-0.5 text-sm text-neutral-500">{p.headline}</p>
+          )}
           <p className="text-sm text-neutral-500">
             {[p.location.city, p.location.state, p.location.country]
               .filter(Boolean)

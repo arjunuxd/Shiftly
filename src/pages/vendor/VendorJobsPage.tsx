@@ -8,6 +8,9 @@ import {
 import type { Job } from "../../types";
 import { JOB_CATEGORIES, WORK_TYPES, RATE_TYPES } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
+import DataErrorState from "../../components/ui/DataErrorState";
+import { getFriendlyError } from "../../lib/errors";
+import VendorNav from "../../components/vendor/VendorNav";
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   JOB_CATEGORIES.map((c) => [c.value, c.label]),
@@ -50,7 +53,7 @@ export default function VendorJobsPage() {
       const data = await getMyJobs(token);
       setJobs(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load jobs.");
+      setError(getFriendlyError(err, "Something went wrong while loading your jobs. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -69,7 +72,7 @@ export default function VendorJobsPage() {
       await load();
     } catch (err: unknown) {
       setActionError(
-        err instanceof Error ? err.message : "Action failed. Please try again.",
+        getFriendlyError(err, "That action didn't go through. Please try again."),
       );
     } finally {
       setActionJobId(null);
@@ -80,16 +83,11 @@ export default function VendorJobsPage() {
     `${job.rateAmount} / ${RATE_LABELS[job.rateType] ?? job.rateType}`;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <VendorNav />
+      <div className="mt-6 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link
-            to="/vendor"
-            className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
-          >
-            &larr; Dashboard
-          </Link>
-          <h1 className="mt-2 text-3xl font-bold text-neutral-900">My Jobs</h1>
+          <h1 className="text-3xl font-bold text-neutral-900">My Jobs</h1>
           <p className="mt-1 text-neutral-500">
             Create, publish and manage your job listings.
           </p>
@@ -115,9 +113,11 @@ export default function VendorJobsPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
         </div>
       ) : error ? (
-        <FriendlyAlert icon="error" title="We couldn't load your jobs">
-          {error}
-        </FriendlyAlert>
+        <DataErrorState
+          title="We couldn't load your jobs"
+          message={error}
+          onRetry={() => void load()}
+        />
       ) : !jobs || jobs.length === 0 ? (
         <div className="rounded-xl border border-neutral-200 bg-white p-10 text-center shadow-sm">
           <p className="text-neutral-500 mb-4">

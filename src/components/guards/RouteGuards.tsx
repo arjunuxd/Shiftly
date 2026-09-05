@@ -2,6 +2,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth } from "../../context/useAuth";
 import type { UserRole } from "../../types";
+import { getRoleHomePath } from "../../lib/roles";
 
 function FullScreenLoader() {
   return (
@@ -31,10 +32,10 @@ export function RoleRoute({
   role,
   children,
 }: {
-  role: UserRole;
+  role: UserRole | UserRole[];
   children: ReactNode;
 }) {
-  const { loading, roleLoading, authenticated, role: userRole } = useAuth();
+  const { loading, roleLoading, authenticated, emailVerified, role: userRole } = useAuth();
   const location = useLocation();
 
   if (loading || roleLoading) {
@@ -45,8 +46,19 @@ export function RoleRoute({
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  if (userRole !== role) {
-    return <Navigate to="/" replace />;
+  if (!emailVerified) {
+    return (
+      <Navigate
+        to="/verify-email"
+        state={{ from: location.pathname }}
+        replace
+      />
+    );
+  }
+
+  const allowed = Array.isArray(role) ? role : [role];
+  if (!userRole || !allowed.includes(userRole)) {
+    return <Navigate to={getRoleHomePath(userRole)} replace />;
   }
 
   return <>{children}</>;

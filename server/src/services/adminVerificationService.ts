@@ -2,6 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "../config/firebaseAdmin.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { VerificationDocStatus } from "../types/verification.js";
+import { MAX_IN_MEMORY_FETCH, sortDocsDesc } from "./queryInMemory.js";
 
 const VERIFICATIONS = "verifications";
 
@@ -53,24 +54,31 @@ export async function getPendingVerifications(): Promise<VerificationResponse[]>
   const snapshot = await db
     .collection(VERIFICATIONS)
     .where("status", "==", "pending")
-    .orderBy("submittedAt", "desc")
+    .limit(MAX_IN_MEMORY_FETCH)
     .get();
 
-  return snapshot.docs.map(serialize);
+  const docs = sortDocsDesc(snapshot.docs, "submittedAt");
+  return docs.map(serialize);
 }
 
 export async function getAllVerifications(
   status?: string,
 ): Promise<VerificationResponse[]> {
   const db = getAdminFirestore();
-  let query: FirebaseFirestore.Query = db.collection(VERIFICATIONS);
+  const snapshot = await db
+    .collection(VERIFICATIONS)
+    .limit(MAX_IN_MEMORY_FETCH)
+    .get();
+
+  const docs = sortDocsDesc(snapshot.docs, "submittedAt");
 
   if (status && status !== "all") {
-    query = query.where("status", "==", status);
+    return docs
+      .filter((doc) => doc.data()?.status === status)
+      .map(serialize);
   }
 
-  const snapshot = await query.orderBy("submittedAt", "desc").get();
-  return snapshot.docs.map(serialize);
+  return docs.map(serialize);
 }
 
 export async function approveJobSeekerVerification(

@@ -3,6 +3,10 @@ import { getAdminFirestore } from "../config/firebaseAdmin.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { VendorProfileResponse } from "../types/vendorProfile.js";
 import { getVendorProfile } from "./vendorProfileService.js";
+import {
+  getVerificationDocument,
+  deleteVerificationDocument,
+} from "./verificationDocumentService.js";
 
 const COLLECTION = "vendorProfiles";
 
@@ -27,6 +31,14 @@ export async function submitVendorVerification(
     throw new AppError(409, "Verification is already pending review.");
   }
 
+  const document = await getVerificationDocument(uid);
+  if (!document) {
+    throw new AppError(
+      400,
+      "Please upload a valid business document before submitting your verification.",
+    );
+  }
+
   const db = getAdminFirestore();
   const ref = db.collection(COLLECTION).doc(uid);
 
@@ -43,6 +55,34 @@ export async function submitVendorVerification(
   return {
     status: "pending",
     submittedAt: new Date().toISOString(),
+    reviewedAt: null,
+    rejectionReason: null,
+  };
+}
+
+export async function removeVendorVerification(
+  uid: string,
+): Promise<VendorVerificationResult> {
+  const db = getAdminFirestore();
+  const ref = db.collection(COLLECTION).doc(uid);
+  const snapshot = await ref.get();
+
+  if (!snapshot.exists) {
+    throw new AppError(404, "Vendor profile not found.");
+  }
+
+  await ref.update({
+    "verification.status": "unverified",
+    "verification.submittedAt": null,
+    "verification.reviewedAt": null,
+    "verification.rejectionReason": null,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  await deleteVerificationDocument(uid);
+
+  return {
+    status: "unverified",
+    submittedAt: null,
     reviewedAt: null,
     rejectionReason: null,
   };

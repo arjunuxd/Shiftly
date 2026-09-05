@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { getRoleHomePath } from "../lib/roles";
 import NotificationBell from "./notifications/NotificationBell";
@@ -13,11 +13,14 @@ const NAV_LINKS = [
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const location = useLocation();
-  const { authenticated, role, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { authenticated, emailVerified, role, accountStatus, signOut } = useAuth();
 
   const dashboardPath = role ? getRoleHomePath(role) : null;
   const isHome = location.pathname === "/";
+  const showSearch = authenticated && role === "job_seeker";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -28,6 +31,15 @@ export default function Header() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const term = searchTerm.trim();
+    if (!term) return;
+    navigate(`/jobs?search=${encodeURIComponent(term)}`);
+    setSearchTerm("");
+    setMobileOpen(false);
+  };
 
   const navSolid = !isHome || scrolled || mobileOpen;
 
@@ -68,6 +80,31 @@ export default function Header() {
             ))}
           </div>
 
+          {/* Desktop Search */}
+          {showSearch && (
+            <form onSubmit={submitSearch} className="hidden md:block flex-1 max-w-xs px-4">
+              <div className="relative">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search jobs…"
+                  aria-label="Search jobs"
+                  className="w-full rounded-lg border border-neutral-300 bg-white py-1.5 pl-9 pr-3 text-sm text-neutral-700 outline-none transition-colors placeholder:text-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30"
+                />
+              </div>
+            </form>
+          )}
+
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-2">
             {!authenticated ? (
@@ -85,49 +122,14 @@ export default function Header() {
                   Get Started
                 </Link>
               </>
-            ) : (
+) : !emailVerified ? (
               <>
-                {role === "job_seeker" && (
-                  <>
-                    <Link
-                      to="/job-seeker/applications"
-                      className="px-3 py-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 rounded-md hover:bg-neutral-100 transition-colors"
-                    >
-                      Applications
-                    </Link>
-                    <Link
-                      to="/job-seeker/messages"
-                      className="px-3 py-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 rounded-md hover:bg-neutral-100 transition-colors"
-                    >
-                      Messages
-                    </Link>
-                  </>
-                )}
-                {role === "vendor" && (
-                  <Link
-                    to="/vendor/messages"
-                    className="px-3 py-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 rounded-md hover:bg-neutral-100 transition-colors"
-                  >
-                    Messages
-                  </Link>
-                )}
-                {role === "superadmin" && (
-                  <Link
-                    to="/admin"
-                    className="px-3 py-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 rounded-md hover:bg-neutral-100 transition-colors"
-                  >
-                    Admin
-                  </Link>
-                )}
-                <NotificationBell />
-                {dashboardPath && (
-                  <Link
-                    to={dashboardPath}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
-                  >
-                    Dashboard
-                  </Link>
-                )}
+                <Link
+                  to="/verify-email"
+                  className="px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-50 rounded-md border border-amber-200 transition-colors"
+                >
+                  Verify email
+                </Link>
                 <button
                   type="button"
                   onClick={() => void signOut()}
@@ -136,7 +138,26 @@ export default function Header() {
                   Sign Out
                 </button>
               </>
-            )}
+) : (
+                <>
+                  <NotificationBell />
+                  {dashboardPath && (
+                    <Link
+                      to={dashboardPath}
+                      className="px-4 py-2 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+                    >
+                      Home
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void signOut()}
+                    className="px-3 py-1.5 text-sm font-medium text-neutral-500 hover:text-neutral-700 rounded-md hover:bg-neutral-100 transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              )}
           </div>
 
           {/* Mobile Toggle */}
@@ -163,6 +184,29 @@ export default function Header() {
         {mobileOpen && (
           <div className="md:hidden pb-4 border-t border-neutral-100 mt-1 pt-3 animate-fade-in">
             <div className="flex flex-col gap-0.5">
+              {showSearch && (
+                <form onSubmit={submitSearch} className="mb-2">
+                  <div className="relative">
+                    <svg
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                    </svg>
+                    <input
+                      type="search"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search jobs…"
+                      aria-label="Search jobs"
+                      className="w-full rounded-lg border border-neutral-300 bg-white py-2 pl-9 pr-3 text-sm text-neutral-700 outline-none transition-colors placeholder:text-neutral-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/30"
+                    />
+                  </div>
+                </form>
+              )}
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.to}
@@ -195,23 +239,24 @@ export default function Header() {
                     Get Started
                   </Link>
                 </>
-              ) : (
+) : (
                 <>
-                  {role === "job_seeker" && (
-                    <>
-                      <Link to="/job-seeker/applications" className="px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-md" onClick={() => setMobileOpen(false)}>Applications</Link>
-                      <Link to="/job-seeker/messages" className="px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-md" onClick={() => setMobileOpen(false)}>Messages</Link>
-                    </>
-                  )}
-                  {role === "vendor" && (
-                    <Link to="/vendor/messages" className="px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-md" onClick={() => setMobileOpen(false)}>Messages</Link>
-                  )}
-                  {role === "superadmin" && (
-                    <Link to="/admin" className="px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-md" onClick={() => setMobileOpen(false)}>Admin</Link>
+                  {!emailVerified && (
+                    <Link
+                      to="/verify-email"
+                      className="mx-3 px-3 py-2.5 text-sm font-medium text-amber-700 bg-amber-50 rounded-md border border-amber-200"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Verify email
+                    </Link>
                   )}
                   {dashboardPath && (
-                    <Link to={dashboardPath} className="mx-3 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg text-center hover:bg-primary-700" onClick={() => setMobileOpen(false)}>
-                      Dashboard
+                    <Link
+                      to={dashboardPath}
+                      className="mx-3 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg text-center hover:bg-primary-700"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Home
                     </Link>
                   )}
                   <button
@@ -227,6 +272,20 @@ export default function Header() {
           </div>
         )}
       </nav>
+
+      {accountStatus === "suspended" && (
+        <div className="border-t border-red-200 bg-red-50">
+          <div className="max-w-6xl mx-auto px-4 py-2.5 sm:px-6 lg:px-8 flex items-center gap-2 text-sm">
+            <svg className="h-4 w-4 shrink-0 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-red-700">
+              <span className="font-semibold">Your account has been suspended.</span>{" "}
+              You can't post jobs, apply, or send messages until it's restored.
+            </p>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

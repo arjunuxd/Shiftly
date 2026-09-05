@@ -12,6 +12,7 @@ import type {
   Conversation,
   Message,
   VendorApplicationWithJob,
+  CandidateProfile,
   AdminUser,
   AdminPlatformOverview,
   AdminVerification,
@@ -22,6 +23,7 @@ import type {
   NotificationListResponse,
   AppNotification,
 } from "../types";
+import { humanizeApiError } from "./errors";
 
 export const API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -31,6 +33,7 @@ export interface AuthMeResponse {
   email: string | null;
   emailVerified: boolean;
   role: UserRole | null;
+  accountStatus?: "active" | "suspended";
 }
 
 export async function getHealth(): Promise<{ status: string }> {
@@ -49,7 +52,12 @@ export async function getMe(idToken: string): Promise<AuthMeResponse> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to load user with status ${response.status}`);
+    throw new Error(
+      humanizeApiError(
+        `Failed to load user with status ${response.status}`,
+        "We couldn't load your account details. Please try again.",
+      ),
+    );
   }
 
   return response.json() as Promise<AuthMeResponse>;
@@ -69,7 +77,12 @@ export async function assignRole(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to assign role with status ${response.status}`);
+    throw new Error(
+      humanizeApiError(
+        `Failed to assign role with status ${response.status}`,
+        "We couldn't set your account type. Please try again.",
+      ),
+    );
   }
 
   return response.json() as Promise<{ role: UserRole }>;
@@ -91,7 +104,12 @@ export async function getProfile(idToken: string): Promise<Profile> {
     if (response.status === 404) {
       throw new Error("PROFILE_NOT_FOUND");
     }
-    throw new Error(`Failed to load profile with status ${response.status}`);
+    throw new Error(
+      humanizeApiError(
+        `Failed to load profile with status ${response.status}`,
+        "We couldn't load your profile. Please try again.",
+      ),
+    );
   }
 
   return normalizeProfile(await response.json());
@@ -141,6 +159,7 @@ export async function updateProfile(
 
 function normalizeProfile(raw: Partial<Profile> & { id: string }): Profile {
   return {
+    headline: raw.headline ?? "",
     personalInfo: raw.personalInfo ?? { fullName: "", bio: "", phone: "" },
     skills: raw.skills ?? [],
     experience: raw.experience ?? [],
@@ -173,7 +192,10 @@ export async function getVerification(
 
   if (!response.ok) {
     throw new Error(
-      `Failed to load verification with status ${response.status}`,
+      humanizeApiError(
+        `Failed to load verification with status ${response.status}`,
+        "We couldn't load your verification status.",
+      ),
     );
   }
 
@@ -199,9 +221,206 @@ export async function submitVerification(
   return response.json() as Promise<VerificationRecord>;
 }
 
+export interface VerificationDocumentRecord {
+  documentUrl: string;
+  documentName: string;
+  documentMime: string;
+  documentSize: number;
+  updatedAt: string | null;
+}
+
+export async function getVerificationDocument(
+  idToken: string,
+): Promise<VerificationDocumentRecord | null> {
+  const response = await fetch(`${API_BASE_URL}/api/verification/document`, {
+    headers: await authHeaders(idToken),
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(
+      humanizeApiError(
+        `Failed to load the document with status ${response.status}`,
+        "We couldn't load your uploaded document.",
+      ),
+    );
+  }
+
+  return response.json() as Promise<VerificationDocumentRecord>;
+}
+
+export async function saveVerificationDocument(
+  idToken: string,
+  document: { documentUrl: string; documentName: string; documentSize: number },
+): Promise<VerificationDocumentRecord> {
+  const response = await fetch(`${API_BASE_URL}/api/verification/document`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+    body: JSON.stringify(document),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't save the document. Please try again."));
+  }
+
+  return response.json() as Promise<VerificationDocumentRecord>;
+}
+
+export async function deleteVerificationDocument(
+  idToken: string,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/verification/document`, {
+    method: "DELETE",
+    headers: await authHeaders(idToken),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't remove the document. Please try again."));
+  }
+}
+
+export async function removeVerification(
+  idToken: string,
+): Promise<{ status: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/verification/remove`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't remove your verification. Please try again."));
+  }
+
+  return response.json() as Promise<{ status: string }>;
+}
+
+export interface UploadResponse {
+  url: string;
+  name?: string;
+  updatedAt: string | null;
+}
+
+export async function uploadProfilePhotoFile(
+  idToken: string,
+  dataUrl: string,
+  fileName: string,
+  size: number,
+): Promise<UploadResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/uploads/photo`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+    body: JSON.stringify({ dataUrl, fileName, size }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't upload that photo. Please try again."));
+  }
+
+  return response.json() as Promise<UploadResponse>;
+}
+
+export async function deleteProfilePhotoFile(idToken: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/uploads/photo`, {
+    method: "DELETE",
+    headers: await authHeaders(idToken),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't remove that photo. Please try again."));
+  }
+}
+
+export async function uploadResumeFile(
+  idToken: string,
+  dataUrl: string,
+  fileName: string,
+  size: number,
+): Promise<UploadResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/uploads/resume`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+    body: JSON.stringify({ dataUrl, fileName, size }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't upload that resume. Please try again."));
+  }
+
+  return response.json() as Promise<UploadResponse>;
+}
+
+export async function deleteResumeFile(idToken: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/uploads/resume`, {
+    method: "DELETE",
+    headers: await authHeaders(idToken),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't remove that resume. Please try again."));
+  }
+}
+
+export async function uploadCertificateFile(
+  idToken: string,
+  certificateId: string,
+  dataUrl: string,
+  fileName: string,
+  size: number,
+): Promise<UploadResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/uploads/certificate`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+    body: JSON.stringify({ certificateId, dataUrl, fileName, size }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't upload that certificate. Please try again."));
+  }
+
+  return response.json() as Promise<UploadResponse>;
+}
+
+export async function deleteCertificateFile(
+  idToken: string,
+  certificateId: string,
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/uploads/certificate/${encodeURIComponent(certificateId)}`,
+    {
+      method: "DELETE",
+      headers: await authHeaders(idToken),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't remove that certificate. Please try again."));
+  }
+}
+
 async function parseError(response: Response, fallback: string): Promise<string> {
+  if (response.status === 401) {
+    return "Your session has expired. Please sign in again.";
+  }
+  if (response.status === 403) {
+    return "You don't have permission to do that.";
+  }
+  if (response.status === 404) {
+    return fallback;
+  }
+  if (response.status === 0) {
+    return "You're offline. Check your connection and try again.";
+  }
+  if (response.status >= 500) {
+    return "Something went wrong on our side. Please try again.";
+  }
   const body = await response.json().catch(() => null);
-  return (body as { error?: string } | null)?.error ?? fallback;
+  const raw = (body as { error?: string } | null)?.error;
+  if (raw) {
+    return humanizeApiError(raw, fallback);
+  }
+  return fallback;
 }
 
 export async function getVendorProfile(idToken: string): Promise<VendorProfile> {
@@ -213,7 +432,12 @@ export async function getVendorProfile(idToken: string): Promise<VendorProfile> 
     if (response.status === 404) {
       throw new Error("VENDOR_PROFILE_NOT_FOUND");
     }
-    throw new Error(`Failed to load vendor profile with status ${response.status}`);
+    throw new Error(
+      humanizeApiError(
+        `Failed to load vendor profile with status ${response.status}`,
+        "We couldn't load your business profile. Please try again.",
+      ),
+    );
   }
 
   return response.json() as Promise<VendorProfile>;
@@ -261,7 +485,12 @@ export async function getVendorVerification(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to load vendor verification with status ${response.status}`);
+    throw new Error(
+      humanizeApiError(
+        `Failed to load vendor verification with status ${response.status}`,
+        "We couldn't load your verification status.",
+      ),
+    );
   }
 
   return response.json() as Promise<VendorVerificationInfo>;
@@ -282,6 +511,73 @@ export async function submitVendorVerification(
   return response.json() as Promise<VendorVerificationInfo>;
 }
 
+export async function getVendorVerificationDocument(
+  idToken: string,
+): Promise<VerificationDocumentRecord | null> {
+  const response = await fetch(`${API_BASE_URL}/api/vendor/verification/document`, {
+    headers: await authHeaders(idToken),
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(
+      humanizeApiError(
+        `Failed to load the document with status ${response.status}`,
+        "We couldn't load your uploaded document.",
+      ),
+    );
+  }
+
+  return response.json() as Promise<VerificationDocumentRecord>;
+}
+
+export async function saveVendorVerificationDocument(
+  idToken: string,
+  document: { documentUrl: string; documentName: string; documentSize: number },
+): Promise<VerificationDocumentRecord> {
+  const response = await fetch(`${API_BASE_URL}/api/vendor/verification/document`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+    body: JSON.stringify(document),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't save the document. Please try again."));
+  }
+
+  return response.json() as Promise<VerificationDocumentRecord>;
+}
+
+export async function deleteVendorVerificationDocument(
+  idToken: string,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/vendor/verification/document`, {
+    method: "DELETE",
+    headers: await authHeaders(idToken),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't remove the document. Please try again."));
+  }
+}
+
+export async function removeVendorVerification(
+  idToken: string,
+): Promise<VendorVerificationInfo> {
+  const response = await fetch(`${API_BASE_URL}/api/vendor/verification/remove`, {
+    method: "POST",
+    headers: await authHeaders(idToken),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't remove your verification. Please try again."));
+  }
+
+  return response.json() as Promise<VendorVerificationInfo>;
+}
+
 export type JobPayload = Omit<
   Job,
   "id" | "vendorId" | "status" | "publishedAt" | "closedAt"
@@ -293,7 +589,12 @@ export async function getMyJobs(idToken: string): Promise<Job[]> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to load jobs with status ${response.status}`);
+    throw new Error(
+      humanizeApiError(
+        `Failed to load jobs with status ${response.status}`,
+        "We couldn't load your jobs. Please try again.",
+      ),
+    );
   }
 
   return response.json() as Promise<Job[]>;
@@ -407,7 +708,9 @@ export interface JobDiscoveryParams {
   state?: string;
   area?: string;
   verifiedOnly?: boolean;
-  sortBy?: "newest" | "pay-high" | "pay-low";
+  sortBy?: "newest" | "pay-high" | "pay-low" | "location";
+  locationCity?: string;
+  locationState?: string;
   pageToken?: string;
 }
 
@@ -425,6 +728,8 @@ export async function discoverJobs(
   if (params.area) query.set("area", params.area);
   if (params.verifiedOnly) query.set("verifiedOnly", "true");
   if (params.sortBy) query.set("sortBy", params.sortBy);
+  if (params.locationCity) query.set("locationCity", params.locationCity);
+  if (params.locationState) query.set("locationState", params.locationState);
   if (params.pageToken) query.set("pageToken", params.pageToken);
 
   const qs = query.toString();
@@ -432,7 +737,12 @@ export async function discoverJobs(
 
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to load jobs with status ${response.status}`);
+    throw new Error(
+      humanizeApiError(
+        `Failed to load jobs with status ${response.status}`,
+        "We couldn't load available jobs. Please try again.",
+      ),
+    );
   }
   return response.json() as Promise<JobDiscoveryResponse>;
 }
@@ -453,7 +763,12 @@ export async function discoverJob(
     if (response.status === 404) {
       throw new Error("JOB_NOT_FOUND");
     }
-    throw new Error(`Failed to load job with status ${response.status}`);
+    throw new Error(
+      humanizeApiError(
+        `Failed to load job with status ${response.status}`,
+        "We couldn't load this job. Please try again.",
+      ),
+    );
   }
   return response.json() as Promise<
     PublicJob & { myApplication?: { status: string } | null }
@@ -470,7 +785,10 @@ export async function getMyApplications(
   });
   if (!response.ok) {
     throw new Error(
-      `Failed to load applications with status ${response.status}`,
+      humanizeApiError(
+        `Failed to load applications with status ${response.status}`,
+        "We couldn't load your applications. Please try again.",
+      ),
     );
   }
   return response.json() as Promise<Application[]>;
@@ -489,7 +807,10 @@ export async function getApplicationDetail(
       throw new Error("APPLICATION_NOT_FOUND");
     }
     throw new Error(
-      `Failed to load application with status ${response.status}`,
+      humanizeApiError(
+        `Failed to load application with status ${response.status}`,
+        "We couldn't load this application. Please try again.",
+      ),
     );
   }
   return response.json() as Promise<Application>;
@@ -544,6 +865,20 @@ export async function getVendorJobApplications(
   return response.json() as Promise<VendorApplicationWithJob[]>;
 }
 
+export async function getVendorApplication(
+  idToken: string,
+  applicationId: string,
+): Promise<VendorApplicationWithJob> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/vendor/applications/${encodeURIComponent(applicationId)}`,
+    { headers: await authHeaders(idToken) },
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to load application with status ${response.status}`));
+  }
+  return response.json() as Promise<VendorApplicationWithJob>;
+}
+
 export async function acceptApplication(
   idToken: string,
   applicationId: string,
@@ -578,6 +913,20 @@ export async function rejectApplication(
     throw new Error(await parseError(response, `Failed to reject application with status ${response.status}`));
   }
   return response.json() as Promise<Application>;
+}
+
+export async function getCandidateProfile(
+  idToken: string,
+  applicationId: string,
+): Promise<CandidateProfile> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/vendor/applications/${applicationId}/candidate`,
+    { headers: await authHeaders(idToken) },
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, `Failed to load candidate profile with status ${response.status}`));
+  }
+  return response.json() as Promise<CandidateProfile>;
 }
 
 // ─── Conversations ───────────────────────────────────────────
@@ -692,6 +1041,26 @@ export async function adminGetUsers(
   return response.json() as Promise<AdminUsersResponse>;
 }
 
+export async function adminCreateAdmin(
+  idToken: string,
+  params: { email: string; password: string; displayName?: string },
+): Promise<AdminUser> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/admins`, {
+    method: "POST",
+    headers: await adminHeaders(idToken),
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) {
+    throw new Error(
+      humanizeApiError(
+        await parseError(response, `Failed to create admin with status ${response.status}`),
+        "We couldn't create that admin account. Please try again.",
+      ),
+    );
+  }
+  return response.json() as Promise<AdminUser>;
+}
+
 export async function adminGetUser(idToken: string, uid: string): Promise<AdminUser> {
   const response = await fetch(`${API_BASE_URL}/api/admin/users/${uid}`, {
     headers: await adminHeaders(idToken),
@@ -776,6 +1145,19 @@ export async function adminRejectVerification(
   return response.json() as Promise<AdminVerification>;
 }
 
+export async function adminGetVerificationDocument(
+  idToken: string,
+  userId: string,
+): Promise<VerificationDocumentRecord> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/verifications/${userId}/document`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't load the verification document."));
+  }
+  return response.json() as Promise<VerificationDocumentRecord>;
+}
+
 export async function adminGetVendorVerifications(
   idToken: string,
   status?: string,
@@ -818,6 +1200,19 @@ export async function adminRejectVendorVerification(
     throw new Error(await parseError(response, `Failed to reject vendor verification with status ${response.status}`));
   }
   return response.json() as Promise<AdminVendorVerification>;
+}
+
+export async function adminGetVendorVerificationDocument(
+  idToken: string,
+  uid: string,
+): Promise<VerificationDocumentRecord> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/vendor-verifications/${uid}/document`, {
+    headers: await adminHeaders(idToken),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, "We couldn't load the verification document."));
+  }
+  return response.json() as Promise<VerificationDocumentRecord>;
 }
 
 export interface AdminJobsResponse {

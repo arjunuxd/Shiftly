@@ -1,4 +1,4 @@
-export type UserRole = "job_seeker" | "vendor" | "superadmin";
+export type UserRole = "job_seeker" | "vendor" | "admin" | "superadmin";
 
 export const PUBLIC_ROLES: Exclude<UserRole, "superadmin">[] = [
   "job_seeker",
@@ -52,6 +52,7 @@ export interface ProfileEducation {
   fieldOfStudy: string;
   startYear: number;
   endYear: number;
+  currentlyStudying?: boolean;
 }
 
 export interface ProfileAvailabilityDay {
@@ -91,6 +92,7 @@ export interface ProfilePortfolioLink {
 
 export interface Profile {
   id: string;
+  headline: string;
   personalInfo: ProfilePersonalInfo;
   skills: ProfileSkill[];
   experience: ProfileExperience[];
@@ -114,6 +116,14 @@ export interface VerificationRecord {
   submittedAt: string | null;
   reviewedAt: string | null;
   rejectionReason: string | null;
+}
+
+export interface VerificationDocumentRecord {
+  documentUrl: string;
+  documentName: string;
+  documentMime: string;
+  documentSize: number;
+  updatedAt: string | null;
 }
 
 export const JOB_CATEGORIES = [
@@ -324,6 +334,36 @@ export interface Message {
 
 export interface VendorApplicationWithJob extends Application {
   jobTitle: string;
+  candidate?: VendorCandidateSummary;
+}
+
+export interface VendorCandidateSummary {
+  id: string;
+  fullName: string;
+  headline: string;
+  photoUrl: string | null;
+  location: ProfileLocation;
+  skills: ProfileSkill[];
+  resumeUrl: string | null;
+  resumeName: string | null;
+  completeness: number;
+}
+
+export interface CandidateProfile {
+  id: string;
+  fullName: string;
+  headline: string;
+  bio: string;
+  photoUrl: string | null;
+  location: ProfileLocation;
+  skills: ProfileSkill[];
+  experience: ProfileExperience[];
+  education: ProfileEducation[];
+  certificates: ProfileCertificate[];
+  resumeUrl: string | null;
+  resumeName: string | null;
+  portfolioLinks: ProfilePortfolioLink[];
+  completeness: number;
 }
 
 // ─── Admin types (Phase 8) ──────────────────────────────────

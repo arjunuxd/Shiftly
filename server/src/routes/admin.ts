@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth, requireSuperadmin } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireSuperadmin } from "../middleware/auth.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
@@ -9,6 +9,7 @@ import {
   getUserById,
   suspendUser,
   restoreUser,
+  createAdmin,
 } from "../services/adminService.js";
 import {
   getAllVerifications,
@@ -35,10 +36,58 @@ import {
 import { getAuditLogs } from "../services/adminAuditService.js";
 import { logAdminAction } from "../services/adminAuditService.js";
 import { createNotification } from "../services/notificationService.js";
+import { getVerificationDocument } from "../services/verificationDocumentService.js";
 
 const router = Router();
 
-router.use(requireAuth, requireSuperadmin);
+router.use(requireAuth);
+router.use(requireRole("admin", "superadmin"));
+
+// Admin management is reserved for superadmins only. These routes must be
+// defined before the router-level role guard allows admins below.
+
+router.get(
+  "/admins",
+  requireSuperadmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const search = typeof req.query.search === "string" ? req.query.search : undefined;
+    const limitRaw = typeof req.query.limit === "string" ? Number(req.query.limit) : 100;
+    const offsetRaw = typeof req.query.offset === "string" ? Number(req.query.offset) : 0;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 200 ? limitRaw : 100;
+    const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+    const result = await getUsers({ role: "admin", search, limit, offset });
+    res.json(result);
+  },
+);
+
+router.post(
+  "/admins",
+  requireSuperadmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const body = (req.body ?? {}) as {
+      email?: unknown;
+      password?: unknown;
+      displayName?: unknown;
+    };
+
+    const email = typeof body.email === "string" ? body.email.trim() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+
+    if (!email || !/.+@.+\..+/.test(email)) {
+      throw new AppError(400, "A valid email address is required.");
+    }
+    if (password.length < 8) {
+      throw new AppError(400, "Password must be at least 8 characters.");
+    }
+
+    const user = (req as AuthenticatedRequest).user!;
+    const admin = await createAdmin({ email, password, displayName });
+    await logAdminAction(user.uid, "ADMIN_CREATED", "user", admin.uid, email);
+    res.status(201).json(admin);
+  },
+);
 
 // ─── Overview ────────────────────────────────────────────────
 
@@ -183,6 +232,23 @@ router.post(
   },
 );
 
+router.get(
+  "/verifications/:userId/document",
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = String(req.params.userId);
+    if (!userId || userId.length > 128) {
+      throw new AppError(400, "Invalid user ID.");
+    }
+
+    const document = await getVerificationDocument(userId);
+    if (!document) {
+      throw new AppError(404, "No document uploaded for this verification.");
+    }
+
+    res.json(document);
+  },
+);
+
 // ─── Vendor Verifications ────────────────────────────────────
 
 router.get(
@@ -245,6 +311,23 @@ router.post(
       data: { verificationType: "vendor", reason: reason.trim() },
     });
     res.json(result);
+  },
+);
+
+router.get(
+  "/vendor-verifications/:uid/document",
+  async (req: Request, res: Response): Promise<void> => {
+    const uid = String(req.params.uid);
+    if (!uid || uid.length > 128) {
+      throw new AppError(400, "Invalid vendor ID.");
+    }
+
+    const document = await getVerificationDocument(uid);
+    if (!document) {
+      throw new AppError(404, "No document uploaded for this verification.");
+    }
+
+    res.json(document);
   },
 );
 

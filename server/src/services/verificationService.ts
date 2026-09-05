@@ -1,10 +1,15 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "../config/firebaseAdmin.js";
+import { AppError } from "../middleware/errorHandler.js";
 import type {
   VerificationDocument,
   VerificationResponse,
   VerificationDocStatus,
 } from "../types/verification.js";
+import {
+  getVerificationDocument,
+  deleteVerificationDocument,
+} from "./verificationDocumentService.js";
 
 const VERIFICATIONS_COLLECTION = "verifications";
 
@@ -43,6 +48,14 @@ export async function getVerificationStatus(
 export async function submitVerification(
   userId: string,
 ): Promise<VerificationResponse> {
+  const document = await getVerificationDocument(userId);
+  if (!document) {
+    throw new AppError(
+      400,
+      "Please upload a valid identity document before submitting your verification.",
+    );
+  }
+
   const db = getAdminFirestore();
   const ref = db.collection(VERIFICATIONS_COLLECTION).doc(userId);
 
@@ -69,4 +82,15 @@ export async function submitVerification(
     reviewedAt: null,
     rejectionReason: null,
   };
+}
+
+export async function removeVerification(userId: string): Promise<void> {
+  const existing = await getVerificationStatus(userId);
+  if (!existing) {
+    throw new AppError(400, "No verification found to remove.");
+  }
+
+  const db = getAdminFirestore();
+  await db.collection(VERIFICATIONS_COLLECTION).doc(userId).delete();
+  await deleteVerificationDocument(userId);
 }

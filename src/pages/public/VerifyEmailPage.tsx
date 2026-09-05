@@ -1,21 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
-import {
-  reloadUser,
-  sendVerificationEmail,
-} from "../../lib/auth";
+import { sendVerificationEmail } from "../../lib/auth";
 import { getAuthErrorMessage } from "../../lib/authErrors";
 import { getRoleHomePath } from "../../lib/roles";
 import { FormError, FriendlyAlert } from "../../components/ui/FormField";
 
 export default function VerifyEmailPage() {
-  const { currentUser, emailVerified, resolveRole, signOut } = useAuth();
+  const { currentUser, emailVerified, refreshUser, resolveRole, signOut } = useAuth();
   const navigate = useNavigate();
   const [resending, setResending] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
+  const autoSent = useRef(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -32,6 +30,16 @@ export default function VerifyEmailPage() {
       run();
     }
   }, [emailVerified, navigate, resolveRole]);
+
+  useEffect(() => {
+    if (!currentUser || emailVerified || autoSent.current) {
+      return;
+    }
+    autoSent.current = true;
+    sendVerificationEmail().catch(() => {
+      // User can resend manually below if the automatic attempt fails.
+    });
+  }, [currentUser, emailVerified]);
 
   async function handleResend() {
     setResending(true);
@@ -51,7 +59,12 @@ export default function VerifyEmailPage() {
     setChecking(true);
     setError(null);
     try {
-      await reloadUser();
+      const freshUser = await refreshUser();
+      if (!freshUser?.emailVerified) {
+        setError(
+          "We still don't show your email as verified. If you just clicked the link, give it a minute, then try again — or resend a fresh link below.",
+        );
+      }
     } catch (err) {
       setError(getAuthErrorMessage(err));
     } finally {
@@ -82,6 +95,11 @@ export default function VerifyEmailPage() {
           We sent a verification link to{" "}
           <span className="font-medium">{currentUser?.email}</span>. Click the
           link in the email to activate your account.
+        </p>
+        <p className="mt-2 text-sm text-neutral-500">
+          Didn't see it? Check your spam or junk folder — once verified, tap{" "}
+          <span className="font-medium">"I've verified my email"</span> and
+          we'll confirm it right away.
         </p>
 
         <div className="mt-8 flex flex-col gap-3">

@@ -133,11 +133,15 @@ function validateEducation(edu: unknown, index: number): ValidationError | null 
   if (typeof e.startYear !== "number" || !Number.isInteger(e.startYear) || e.startYear < 1900 || e.startYear > currentYear) {
     return { field: `education[${index}].startYear`, message: `Start year must be between 1900 and ${currentYear}.` };
   }
-  if (typeof e.endYear !== "number" || !Number.isInteger(e.endYear) || e.endYear < 1900 || e.endYear > currentYear + 10) {
-    return { field: `education[${index}].endYear`, message: `End year must be between 1900 and ${currentYear + 10}.` };
-  }
-  if (e.endYear < e.startYear) {
-    return { field: `education[${index}]`, message: "End year must be after start year." };
+
+  const currentlyStudying = e.currentlyStudying === true;
+  if (!currentlyStudying) {
+    if (typeof e.endYear !== "number" || !Number.isInteger(e.endYear) || e.endYear < 1900 || e.endYear > currentYear + 10) {
+      return { field: `education[${index}].endYear`, message: `End year must be between 1900 and ${currentYear + 10}.` };
+    }
+    if (e.endYear < e.startYear) {
+      return { field: `education[${index}]`, message: "End year must be after start year." };
+    }
   }
 
   return null;
@@ -239,6 +243,11 @@ export function validateProfile(body: unknown): ValidationError[] {
   }
 
   const b = body as Record<string, unknown>;
+
+  if (b.headline !== undefined) {
+    const err = validateOptionalString(b.headline, "headline", 100);
+    if (err) errors.push(err);
+  }
 
   if (b.personalInfo && typeof b.personalInfo === "object") {
     const pi = b.personalInfo as Record<string, unknown>;
