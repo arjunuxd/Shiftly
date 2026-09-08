@@ -1,4 +1,10 @@
-export type ApplicationStatus = "applied" | "withdrawn" | "accepted" | "rejected";
+export type ApplicationStatus =
+  | "applied"
+  | "withdrawn"
+  | "accepted"
+  | "hired"
+  | "completed"
+  | "rejected";
 
 export interface ApplicationDocument {
   jobId: string;

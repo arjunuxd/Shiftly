@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { discoverJob, applyToJob } from "../../lib/api";
+import { discoverJob } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import { useAuth } from "../../context/useAuth";
 import { useProfile } from "../../context/useProfile";
 import { CompactVerificationBadge } from "../../components/ui/VerificationBadge";
 import { FriendlyAlert } from "../../components/ui/FormField";
-import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import QuickApplyModal from "../../components/jobSeeker/QuickApplyModal";
+import SaveJobButton from "../../components/ui/SaveJobButton";
 import DataErrorState from "../../components/ui/DataErrorState";
 import { getFriendlyError } from "../../lib/errors";
 import type { PublicJob } from "../../types";
-
-const PROFILE_COMPLETION_THRESHOLD = 50;
 
 function formatPay(rateType: string, rateAmount: number): string {
   const type = rateType === "hourly" ? "/hr" : rateType === "daily" ? "/day" : "";
@@ -54,9 +53,7 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [applying, setApplying] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
-  const [applyError, setApplyError] = useState<string | null>(null);
 
   useEffect(() => {
     if (role === "job_seeker") {
@@ -86,24 +83,11 @@ export default function JobDetailPage() {
     void fetchJob();
   }, [fetchJob]);
 
-  const handleApply = async () => {
-    if (!authenticated || !jobId) return;
-    setApplying(true);
-    setApplyError(null);
-    try {
-      const token = await getCurrentIdToken();
-      const application = await applyToJob(token, jobId);
-      setApplySuccess(true);
-      setJob((prev) =>
-        prev ? { ...prev, myApplication: { status: application.status } } : prev,
-      );
-    } catch (err: unknown) {
-      setApplyError(getFriendlyError(err, "We couldn't submit your application. Please try again."));
-    } finally {
-      setApplying(false);
-      setConfirming(false);
-    }
-  };
+  const handleApplied = useCallback(() => {
+    setApplySuccess(true);
+    setConfirming(false);
+    void fetchJob();
+  }, [fetchJob]);
 
   if (loading) {
     return (
@@ -166,12 +150,12 @@ export default function JobDetailPage() {
 
   const isJobSeeker = role === "job_seeker";
   const applicationStatus = job.myApplication?.status;
-  const hasApplied = applicationStatus === "applied";
+  const hasApplied =
+    applicationStatus === "applied" ||
+    applicationStatus === "hired" ||
+    applicationStatus === "completed";
   const hasWithdrawn = applicationStatus === "withdrawn" || applicationStatus === "cancelled";
   const isClosed = job.status === "closed";
-  const completeness = profile?.completeness ?? 0;
-  const profileGated =
-    isJobSeeker && profileLoading === false && (profile === null || completeness < PROFILE_COMPLETION_THRESHOLD);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -225,6 +209,22 @@ export default function JobDetailPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                   <span className="font-medium">Your application has been accepted!</span>
+                </>
+              )}
+              {applicationStatus === "hired" && (
+                <>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium">You're hired for this shift!</span>
+                </>
+              )}
+              {applicationStatus === "completed" && (
+                <>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-medium">Shift completed — nice work!</span>
                 </>
               )}
               {applicationStatus === "under-review" && (
@@ -314,6 +314,48 @@ export default function JobDetailPage() {
             </p>
           </div>
 
+          {/* Skills for this shift */}
+          {Array.isArray(job.requiredSkills) && job.requiredSkills.length > 0 && (
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-neutral-900 mb-1">
+                Skills for this shift
+              </h2>
+              {isJobSeeker && (
+                <p className="text-sm text-neutral-500 mb-3">
+                  {profile && profile.skills && profile.skills.length > 0
+                    ? "Skills you have are highlighted."
+                    : "Add skills to your profile to prove a good match."}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {job.requiredSkills.map((skill) => {
+                  const has =
+                    isJobSeeker &&
+                    profile?.skills?.some(
+                      (s) => s.name.toLowerCase() === skill.toLowerCase(),
+                    );
+                  return (
+                    <span
+                      key={skill}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium border ${
+                        has
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-neutral-50 text-neutral-600 border-neutral-200"
+                      }`}
+                    >
+                      {has && (
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                      {skill}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* When & where */}
           <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-neutral-900 mb-4">
@@ -399,6 +441,7 @@ export default function JobDetailPage() {
                 >
                   Sign in to apply
                 </Link>
+                <SaveJobButton jobId={job.id} className="w-full" />
                 <p className="text-xs text-neutral-500 text-center">
                   Create a free account or sign in to apply for this shift.
                 </p>
@@ -437,30 +480,6 @@ export default function JobDetailPage() {
                   This shift is no longer accepting applications.
                 </p>
               </div>
-            ) : profileGated ? (
-              <div className="space-y-3">
-                <div className="rounded-lg border border-accent-200 bg-accent-50 p-4 text-sm text-accent-800">
-                  <p className="font-semibold mb-1">
-                    {profile === null
-                      ? "Complete your profile before applying"
-                      : `Your profile is ${completeness}% complete`}
-                  </p>
-                  <p className="text-accent-900/80">
-                    Employers review your profile when you apply. Finish yours to
-                    unlock applications.
-                  </p>
-                </div>
-                <Link
-                  to={
-                    profile === null
-                      ? "/job-seeker/profile/create"
-                      : "/job-seeker/profile/edit"
-                  }
-                  className="block w-full px-6 py-3 bg-primary-600 text-white text-center font-semibold rounded-lg hover:bg-primary-700 transition-colors text-sm"
-                >
-                  {profile === null ? "Create your profile" : "Complete your profile"}
-                </Link>
-              </div>
             ) : profileLoading ? (
               <div className="h-12 rounded-lg bg-neutral-100 animate-pulse" />
             ) : (
@@ -473,15 +492,10 @@ export default function JobDetailPage() {
                   Apply now
                 </button>
                 <p className="text-xs text-neutral-500 text-center">
-                  Applying takes under a minute.
+                  Quick apply — review what you share, then confirm.
                 </p>
+                <SaveJobButton jobId={job.id} className="w-full" />
               </>
-            )}
-
-            {applyError && (
-              <FriendlyAlert icon="error" title="We couldn't submit your application">
-                {applyError}
-              </FriendlyAlert>
             )}
 
             {/* Employer card */}
@@ -516,7 +530,7 @@ export default function JobDetailPage() {
       </div>
 
       {/* Withdraw */}
-      {authenticated && isJobSeeker && hasApplied && job.myApplication && (
+      {authenticated && isJobSeeker && applicationStatus === "applied" && job.myApplication && (
         <div className="mt-6">
           <WithdrawSection
             jobId={jobId!}
@@ -531,15 +545,13 @@ export default function JobDetailPage() {
         </div>
       )}
 
-      <ConfirmDialog
-        open={confirming}
-        title={`Apply to "${job.title}"?`}
-        message="The employer will see your profile and can review it right away. Application can't be duplicated."
-        confirmLabel="Confirm application"
-        busy={applying}
-        onConfirm={() => void handleApply()}
-        onCancel={() => setConfirming(false)}
-      />
+      {confirming && (
+        <QuickApplyModal
+          job={job}
+          onClose={() => setConfirming(false)}
+          onApplied={handleApplied}
+        />
+      )}
     </div>
   );
 }

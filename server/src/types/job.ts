@@ -10,12 +10,15 @@ export interface JobDocument {
   workType: string;
   rateType: JobRateType;
   rateAmount: number;
+  requiredSkills?: string[];
   location: {
     city: string;
     state: string;
     country: string;
     address: string;
     area?: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   startDate: string;
   endDate: string;
@@ -38,12 +41,15 @@ export interface JobResponse {
   workType: string;
   rateType: JobRateType;
   rateAmount: number;
+  requiredSkills?: string[];
   location: {
     city: string;
     state: string;
     country: string;
     address: string;
     area?: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   startDate: string;
   endDate: string;

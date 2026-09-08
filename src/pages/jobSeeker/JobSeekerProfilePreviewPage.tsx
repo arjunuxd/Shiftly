@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useProfile } from "../../context/useProfile";
+import Avatar from "../../components/ui/Avatar";
 import type { Profile } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
 
@@ -36,17 +37,12 @@ function EmployerPreview({ p }: { p: Profile }) {
       </div>
 
       <div className="mt-6 flex items-start gap-4">
-        {p.photoUrl ? (
-          <img
-            src={p.photoUrl}
-            alt={p.personalInfo.fullName}
-            className="h-20 w-20 shrink-0 rounded-full object-cover border border-neutral-200"
-          />
-        ) : (
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-2xl font-bold text-neutral-400">
-            ?
-          </div>
-        )}
+        <Avatar
+          name={p.personalInfo.fullName}
+          src={p.photoUrl}
+          className="h-20 w-20 ring-2 ring-primary-100"
+          textClassName="text-2xl"
+        />
         <div>
           <p className="text-xl font-bold text-neutral-900">
             {p.personalInfo.fullName || "Unnamed Candidate"}
@@ -110,7 +106,7 @@ function EmployerPreview({ p }: { p: Profile }) {
               rel="noopener noreferrer"
               className="mt-1 inline-block text-sm font-medium text-primary-600 hover:text-primary-700"
             >
-              {p.resumeName ?? "View resume"}
+              View Resume ↗
             </a>
           </div>
         )}

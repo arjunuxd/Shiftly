@@ -3,10 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useProfile } from "../../context/useProfile";
 import ProfileDisplay from "../../components/profile/ProfileDisplay";
 import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
+import ReputationSummaryCard from "../../components/profile/ReputationSummaryCard";
+import { ShiftReadyBadge } from "../../components/profile/ShiftReady";
+import { useAuth } from "../../context/useAuth";
 import { FriendlyAlert } from "../../components/ui/FormField";
 
 export default function JobSeekerProfilePage() {
   const { profile, profileLoading, profileError, fetchProfile } = useProfile();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,6 +51,12 @@ export default function JobSeekerProfilePage() {
       <div className="mt-6 mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-neutral-900">Your Profile</h1>
+          <div className="mt-2">
+            <ShiftReadyBadge
+              profile={profile}
+              emailVerified={currentUser?.emailVerified ?? false}
+            />
+          </div>
         </div>
         <Link
           to="/job-seeker/profile/edit"
@@ -54,6 +64,10 @@ export default function JobSeekerProfilePage() {
         >
           Edit Profile
         </Link>
+      </div>
+
+      <div className="mb-6">
+        <ReputationSummaryCard userId={currentUser?.uid} role="job_seeker" />
       </div>
 
       <ProfileDisplay profile={profile} />

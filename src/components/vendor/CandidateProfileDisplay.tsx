@@ -1,4 +1,6 @@
+import Avatar from "../ui/Avatar";
 import type { CandidateProfile } from "../../types";
+import { RepeatHireBadge, CandidateRating } from "./TrustBadges";
 
 const PLATFORM_HINTS: Record<string, string> = {
   linkedin: "View profile",
@@ -96,13 +98,6 @@ export default function CandidateProfileDisplay({
     completeness,
   } = candidate;
 
-  const initials = fullName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
   const locationLabel = [location.city, location.state, location.country]
     .filter(Boolean)
     .join(", ");
@@ -113,17 +108,12 @@ export default function CandidateProfileDisplay({
       <header className="rounded-xl border border-neutral-200 bg-white p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
-            {photoUrl ? (
-              <img
-                src={photoUrl}
-                alt={fullName}
-                className="h-20 w-20 shrink-0 rounded-full object-cover border border-neutral-200"
-              />
-            ) : (
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary-100 text-2xl font-bold text-primary-700">
-                {initials}
-              </div>
-            )}
+            <Avatar
+              name={fullName}
+              src={photoUrl}
+              className="h-20 w-20"
+              textClassName="text-2xl"
+            />
             <div className="min-w-0">
               <h2 className="text-2xl font-bold text-neutral-900">{fullName}</h2>
               {headline && (
@@ -148,6 +138,36 @@ export default function CandidateProfileDisplay({
           </span>
         </div>
       </header>
+
+      {/* Trust & reputation */}
+      <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 sm:p-6">
+        <h3 className="mb-3 text-base font-semibold text-neutral-900">
+          Trust &amp; history
+        </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <RepeatHireBadge
+            repeatHire={candidate.repeatHire}
+            completedWithVendor={candidate.completedWithVendor}
+          />
+          <CandidateRating
+            averageRating={candidate.averageRating}
+            ratingCount={candidate.ratingCount}
+          />
+          {candidate.completedJobs > 0 && (
+            <span className="inline-flex items-center rounded-full bg-neutral-50 px-2.5 py-0.5 text-xs font-medium text-neutral-600 border border-neutral-200">
+              {candidate.completedJobs} completed shift
+              {candidate.completedJobs === 1 ? "" : "s"} overall
+            </span>
+          )}
+          {(!candidate.repeatHire ||
+            !candidate.averageRating ||
+            candidate.ratingCount === 0) && (
+            <span className="text-xs text-neutral-500 ml-1">
+              No history yet — this candidate is new to Shiftly.
+            </span>
+          )}
+        </div>
+      </section>
 
       {/* About */}
       <Section title="About">
@@ -264,10 +284,15 @@ export default function CandidateProfileDisplay({
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
-                    View certificate
+                    View credential ↗
                   </a>
                 ) : (
-                  <p className="mt-2 text-xs text-neutral-400">No file uploaded</p>
+                  <p className="mt-2 text-xs text-neutral-400">No credential link</p>
+                )}
+                {cert.credentialId && (
+                  <p className="mt-1.5 text-xs text-neutral-400">
+                    ID: {cert.credentialId}
+                  </p>
                 )}
               </li>
             ))}
@@ -287,10 +312,10 @@ export default function CandidateProfileDisplay({
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-neutral-900">
-                  {resumeName ?? "Resume.pdf"}
+                  {resumeName ?? "Resume"}
                 </p>
                 <p className="text-xs text-neutral-400">
-                  Uploaded by the candidate
+                  Shared link
                 </p>
               </div>
             </div>
@@ -303,11 +328,11 @@ export default function CandidateProfileDisplay({
               <svg className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
               </svg>
-              View resume
+              View Resume ↗
             </a>
           </div>
         ) : (
-          <EmptyState text="No resume uploaded." />
+          <EmptyState text="No resume link provided." />
         )}
       </Section>
 

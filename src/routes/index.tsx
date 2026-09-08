@@ -24,6 +24,7 @@ import JobDetailPage from "../pages/jobSeeker/JobDetailPage";
 import ApplicationsPage from "../pages/jobSeeker/ApplicationsPage";
 import MessagingPage from "../pages/jobSeeker/MessagingPage";
 import NotificationsPage from "../pages/jobSeeker/NotificationsPage";
+import SavedJobsPage from "../pages/jobSeeker/SavedJobsPage";
 import VendorDashboard from "../pages/vendor/VendorDashboard";
 import VendorProfilePage from "../pages/vendor/VendorProfilePage";
 import VendorProfileCreatePage from "../pages/vendor/VendorProfileCreatePage";
@@ -46,6 +47,7 @@ import NotFoundPage from "../pages/NotFoundPage";
 import { RoleRoute } from "../components/guards/RouteGuards";
 import { ProfileProvider } from "../context/ProfileContext";
 import { VendorProfileProvider } from "../context/VendorProfileContext";
+import { SavedJobsProvider } from "../context/SavedJobsContext";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -68,7 +70,9 @@ function ScrollToTop() {
 function JobSeekerLayout({ children }: { children: ReactNode }) {
   return (
     <RoleRoute role="job_seeker">
-      <ProfileProvider>{children}</ProfileProvider>
+      <SavedJobsProvider>
+        <ProfileProvider>{children}</ProfileProvider>
+      </SavedJobsProvider>
     </RoleRoute>
   );
 }
@@ -101,12 +105,14 @@ export const router = createBrowserRouter([
       { path: "contact", element: <ContactPage /> },
       { path: "privacy", element: <PrivacyPage /> },
       { path: "terms", element: <TermsPage /> },
-      { path: "jobs", element: <ProfileProvider><JobDiscoveryPage /></ProfileProvider> },
+      { path: "jobs", element: <ProfileProvider><SavedJobsProvider><JobDiscoveryPage /></SavedJobsProvider></ProfileProvider> },
       {
         path: "jobs/:jobId",
         element: (
           <ProfileProvider>
-            <JobDetailPage />
+            <SavedJobsProvider>
+              <JobDetailPage />
+            </SavedJobsProvider>
           </ProfileProvider>
         ),
       },
@@ -149,6 +155,10 @@ export const router = createBrowserRouter([
       {
         path: "job-seeker/notifications",
         element: <JobSeekerLayout><NotificationsPage /></JobSeekerLayout>,
+      },
+      {
+        path: "job-seeker/saved-jobs",
+        element: <JobSeekerLayout><SavedJobsPage /></JobSeekerLayout>,
       },
       {
         path: "vendor",

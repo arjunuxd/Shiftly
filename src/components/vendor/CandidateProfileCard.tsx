@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
+import Avatar from "../ui/Avatar";
 import type { VendorApplicationWithJob } from "../../types";
 import { APPLICATION_STATUS_LABELS } from "../../types";
+import { RepeatHireBadge, CandidateRating } from "./TrustBadges";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "";
@@ -9,15 +11,6 @@ function formatDate(dateStr: string | null): string {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -80,23 +73,22 @@ export default function CandidateProfileCard({
     <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-4">
-          {candidate.photoUrl ? (
-            <img
-              src={candidate.photoUrl}
-              alt={candidate.fullName}
-              className="h-12 w-12 shrink-0 rounded-full object-cover border border-neutral-200"
-            />
-          ) : (
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700">
-              {initials(candidate.fullName)}
-            </div>
-          )}
+          <Avatar
+            name={candidate.fullName}
+            src={candidate.photoUrl}
+            className="h-12 w-12"
+            textClassName="text-sm"
+          />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <p className="font-semibold text-neutral-900">
                 {candidate.fullName}
               </p>
               <StatusBadge status={status} />
+              <RepeatHireBadge
+                repeatHire={candidate.repeatHire}
+                completedWithVendor={candidate.completedWithVendor}
+              />
             </div>
             {candidate.headline && (
               <p className="mt-0.5 text-sm text-neutral-500 truncate">
@@ -104,6 +96,10 @@ export default function CandidateProfileCard({
               </p>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+              <CandidateRating
+                averageRating={candidate.averageRating}
+                ratingCount={candidate.ratingCount}
+              />
               {location && (
                 <span className="inline-flex items-center gap-1">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -156,12 +152,17 @@ export default function CandidateProfileCard({
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
         {candidate.resumeUrl && (
-          <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
-            <svg className="h-3.5 w-3.5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <a
+            href={candidate.resumeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
-            Resume attached
-          </span>
+            View Resume ↗
+          </a>
         )}
         {jobId && (
           <span className="ml-auto text-xs text-neutral-400">

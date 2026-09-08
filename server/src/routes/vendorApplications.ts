@@ -9,6 +9,7 @@ import {
   getCandidateProfileForVendor,
   acceptApplication,
   rejectApplication,
+  completeApplication,
 } from "../services/vendorApplicationService.js";
 
 const router = Router();
@@ -91,6 +92,22 @@ router.patch(
     }
 
     const application = await rejectApplication(applicationId, user.uid);
+    res.json(application);
+  },
+);
+
+router.patch(
+  "/:applicationId/complete",
+  requireAccountActive,
+  async (req: Request, res: Response): Promise<void> => {
+    const user = (req as AuthenticatedRequest).user!;
+    const applicationId = String(req.params.applicationId);
+
+    if (!applicationId || applicationId.length > 128) {
+      throw new AppError(400, "Invalid application ID.");
+    }
+
+    const application = await completeApplication(applicationId, user.uid);
     res.json(application);
   },
 );

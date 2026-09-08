@@ -5,7 +5,11 @@ export type NotificationType =
   | "APPLICATION_REJECTED"
   | "NEW_MESSAGE"
   | "VERIFICATION_APPROVED"
-  | "VERIFICATION_REJECTED";
+  | "VERIFICATION_REJECTED"
+  | "JOB_MATCHED"
+  | "JOB_HIRED"
+  | "JOB_COMPLETED"
+  | "REVIEW_RECEIVED";
 
 export interface NotificationDocument {
   recipientId: string;
@@ -22,6 +26,7 @@ export interface NotificationDocument {
     conversationId?: string | null;
     verificationType?: string | null;
     reason?: string | null;
+    rating?: number | null;
   };
 }
 
@@ -41,6 +46,7 @@ export interface NotificationResponse {
     conversationId?: string | null;
     verificationType?: string | null;
     reason?: string | null;
+    rating?: number | null;
   };
 }
 

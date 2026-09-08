@@ -6,17 +6,11 @@ import {
   getVerification,
   submitVerification as apiSubmitVerification,
   removeVerification as apiRemoveVerification,
-  getVerificationDocument,
-  saveVerificationDocument,
-  deleteVerificationDocument,
 } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
-import type { VerificationRecord, VerificationDocumentRecord } from "../../types";
+import type { VerificationRecord } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
-import VerificationDocumentUpload, {
-  type VerificationDocumentValue,
-} from "../../components/verification/VerificationDocumentUpload";
 import { getFriendlyError } from "../../lib/errors";
 
 function StatusIcon({ status }: { status: string }) {
@@ -57,15 +51,31 @@ function StatusIcon({ status }: { status: string }) {
   );
 }
 
+function CheckItem({ label, done }: { label: string; done: boolean }) {
+  return (
+    <li className="flex items-center gap-2.5">
+      <span
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+          done
+            ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+            : "border-neutral-300 bg-white text-neutral-300"
+        }`}
+      >
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </span>
+      <span className={`text-sm ${done ? "text-neutral-700" : "text-neutral-500"}`}>
+        {label}
+      </span>
+    </li>
+  );
+}
+
 export default function JobSeekerVerifyPage() {
   const { currentUser } = useAuth();
-  const { profile, fetchProfile } = useProfile();
-  const [verification, setVerification] = useState<VerificationRecord | null>(
-    null,
-  );
-  const [documentRecord, setDocumentRecord] = useState<VerificationDocumentRecord | null>(
-    null,
-  );
+  const { profile, profileLoading, fetchProfile } = useProfile();
+  const [verification, setVerification] = useState<VerificationRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,14 +93,9 @@ export default function JobSeekerVerifyPage() {
     setLoading(true);
 
     getCurrentIdToken()
-      .then((token) =>
-        Promise.all([getVerification(token), getVerificationDocument(token)]),
-      )
-      .then(([v, doc]) => {
-        if (active) {
-          setVerification(v);
-          setDocumentRecord(doc);
-        }
+      .then((token) => getVerification(token))
+      .then((v) => {
+        if (active) setVerification(v);
       })
       .catch(() => {})
       .finally(() => {
@@ -102,22 +107,6 @@ export default function JobSeekerVerifyPage() {
     };
   }, [currentUser]);
 
-  async function handleSaveDocument(doc: {
-    documentUrl: string;
-    documentName: string;
-    documentSize: number;
-  }) {
-    const token = await getCurrentIdToken();
-    const saved = await saveVerificationDocument(token, doc);
-    setDocumentRecord(saved);
-  }
-
-  async function handleRemoveDocument() {
-    const token = await getCurrentIdToken();
-    await deleteVerificationDocument(token);
-    setDocumentRecord(null);
-  }
-
   async function handleSubmit() {
     setError(null);
     setSuccess(false);
@@ -127,8 +116,6 @@ export default function JobSeekerVerifyPage() {
       const token = await getCurrentIdToken();
       const result = await apiSubmitVerification(token);
       setVerification(result);
-      const doc = await getVerificationDocument(token);
-      setDocumentRecord(doc);
       setSuccess(true);
     } catch (err: unknown) {
       setError(
@@ -148,7 +135,6 @@ export default function JobSeekerVerifyPage() {
       await apiRemoveVerification(token);
       const fresh = await getVerification(token);
       setVerification(fresh);
-      setDocumentRecord(null);
       setRemoveOpen(false);
       setSuccess(false);
     } catch (err: unknown) {
@@ -162,13 +148,14 @@ export default function JobSeekerVerifyPage() {
   }
 
   const status = verification?.status ?? "unverified";
-  const documentValue: VerificationDocumentValue | null = documentRecord
-    ? {
-        documentUrl: documentRecord.documentUrl,
-        documentName: documentRecord.documentName,
-        documentMime: documentRecord.documentMime,
-      }
-    : null;
+
+  const checks = [
+    { label: "Verified email", done: Boolean(currentUser?.email) },
+    { label: "Phone number added to your profile", done: Boolean(profile?.personalInfo.phone) },
+    { label: "Profile details completed", done: Boolean(profile && profile.completeness >= 50) },
+    { label: "Resume link added", done: Boolean(profile?.resumeUrl) },
+  ];
+  const checksDone = checks.filter((c) => c.done).length;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
@@ -184,7 +171,7 @@ export default function JobSeekerVerifyPage() {
         </h1>
       </div>
 
-      {loading ? (
+      {loading || profileLoading ? (
         <div className="flex items-center justify-center min-h-[30vh]">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
         </div>
@@ -200,8 +187,8 @@ export default function JobSeekerVerifyPage() {
                 You are verified
               </h2>
               <p className="text-neutral-500">
-                Your identity has been verified. This badge is visible to
-                employers.
+                Your identity details have been verified. This badge is visible
+                to employers.
               </p>
               <div className="mt-6 flex justify-center">
                 <button
@@ -241,19 +228,9 @@ export default function JobSeekerVerifyPage() {
                 </div>
               )}
               <p className="text-neutral-500 mb-6">
-                Your verification could not be approved. Please upload a valid
-                document and resubmit.
+                Your verification could not be approved. Update your profile
+                details and resubmit.
               </p>
-              <div className="mb-6">
-                <VerificationDocumentUpload
-                  label="Identity document"
-                  hint="A clear photo or scan of a valid government-issued photo ID."
-                  value={documentValue}
-                  onSave={handleSaveDocument}
-                  onRemove={handleRemoveDocument}
-                  disabled={submitting}
-                />
-              </div>
               {error && (
                 <div className="mb-4">
                   <FriendlyAlert icon="error" title="We couldn't resubmit">
@@ -271,16 +248,11 @@ export default function JobSeekerVerifyPage() {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={submitting || !documentRecord}
+                disabled={submitting}
                 className="inline-flex items-center rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
               >
                 {submitting ? "Submitting..." : "Resubmit Verification"}
               </button>
-              {!documentRecord && (
-                <p className="mt-3 text-xs text-neutral-400">
-                  Please upload a document before resubmitting.
-                </p>
-              )}
             </>
           )}
 
@@ -291,27 +263,20 @@ export default function JobSeekerVerifyPage() {
               </h2>
               <p className="text-neutral-500 mb-6">
                 Verification helps employers trust your profile. It's quick and
-                helps you get hired faster.
+                helps you get hired faster — no ID uploads needed.
               </p>
-              <div className="rounded-lg bg-neutral-50 p-4 mb-6 text-left">
-                <p className="text-sm font-medium text-neutral-700 mb-2">
-                  What's needed:
+              <div className="rounded-xl bg-neutral-50 p-5 mb-6 text-left">
+                <p className="text-sm font-medium text-neutral-700 mb-3">
+                  Your verification includes:
                 </p>
-                <ul className="text-sm text-neutral-500 space-y-1">
-                  <li>• A valid government-issued photo ID</li>
-                  <li>• The document must not be expired</li>
-                  <li>• JPG, PNG, WEBP, or PDF up to 500 KB</li>
+                <ul className="space-y-2">
+                  {checks.map((c) => (
+                    <CheckItem key={c.label} label={c.label} done={c.done} />
+                  ))}
                 </ul>
-              </div>
-              <div className="mb-6">
-                <VerificationDocumentUpload
-                  label="Identity document"
-                  hint="A clear photo or scan of a valid government-issued photo ID."
-                  value={documentValue}
-                  onSave={handleSaveDocument}
-                  onRemove={handleRemoveDocument}
-                  disabled={submitting}
-                />
+                <p className="mt-3 text-xs text-neutral-400">
+                  {checksDone} of {checks.length} details in place.
+                </p>
               </div>
               {error && (
                 <div className="mb-4">
@@ -330,7 +295,7 @@ export default function JobSeekerVerifyPage() {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={submitting || !profile || !documentRecord}
+                disabled={submitting || !profile || checksDone < checks.length}
                 className="inline-flex items-center rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
               >
                 {submitting ? "Submitting..." : "Submit for Verification"}
@@ -340,9 +305,9 @@ export default function JobSeekerVerifyPage() {
                   Please complete your profile before submitting for verification.
                 </p>
               )}
-              {profile && !documentRecord && (
+              {profile && checksDone < checks.length && (
                 <p className="mt-3 text-xs text-neutral-400">
-                  Please upload a valid document before submitting for verification.
+                  Complete the checklist above to enable submission.
                 </p>
               )}
             </>

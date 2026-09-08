@@ -3,6 +3,7 @@ import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } 
 import { getCurrentIdToken } from "../../lib/auth";
 import NotificationList from "../../components/notifications/NotificationList";
 import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
+import JobAlertsPreferencesPanel from "../../components/jobSeeker/JobAlertsPreferencesPanel";
 import type { AppNotification } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
 
@@ -146,6 +147,10 @@ export default function NotificationsPage() {
               </button>
             </div>
           )}
+
+          <div className="mt-10">
+            <JobAlertsPreferencesPanel />
+          </div>
         </>
       )}
     </div>

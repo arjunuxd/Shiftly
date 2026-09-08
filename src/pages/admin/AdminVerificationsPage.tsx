@@ -7,10 +7,8 @@ import {
   adminGetVendorVerifications,
   adminApproveVendorVerification,
   adminRejectVendorVerification,
-  adminGetVerificationDocument,
-  adminGetVendorVerificationDocument,
 } from "../../lib/api";
-import type { AdminVerification, AdminVendorVerification, VerificationDocumentRecord } from "../../types";
+import type { AdminVerification, AdminVendorVerification } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import ReasonDialog from "../../components/ui/ReasonDialog";
@@ -51,30 +49,6 @@ export default function AdminVerificationsPage() {
   const [approveTarget, setApproveTarget] = useState<{ kind: "seeker" | "vendor"; id: string; label: string } | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ kind: "seeker" | "vendor"; id: string; label: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [documentView, setDocumentView] = useState<{
-    document: VerificationDocumentRecord | null;
-    label: string;
-  } | null>(null);
-  const [documentBusy, setDocumentBusy] = useState(false);
-  const [documentError, setDocumentError] = useState<string | null>(null);
-
-  async function openDocument(kind: "seeker" | "vendor", id: string, label: string) {
-    setDocumentView({ document: null, label });
-    setDocumentBusy(true);
-    setDocumentError(null);
-    try {
-      const token = await getCurrentIdToken();
-      const document =
-        kind === "seeker"
-          ? await adminGetVerificationDocument(token, id)
-          : await adminGetVendorVerificationDocument(token, id);
-      setDocumentView({ document, label });
-    } catch (e) {
-      setDocumentError(getFriendlyError(e, "We couldn't load the verification document."));
-    } finally {
-      setDocumentBusy(false);
-    }
-  }
 
   const loadVerifications = useCallback(async () => {
     setLoading(true);
@@ -251,12 +225,6 @@ export default function AdminVerificationsPage() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex flex-wrap gap-2 justify-end">
-                          <button
-                            onClick={() => openDocument("seeker", v.userId, "this identity document")}
-                            className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:border-primary-300 hover:text-primary-700"
-                          >
-                            View document
-                          </button>
                           {v.status === "pending" && (
                             <>
                               <button
@@ -322,12 +290,6 @@ export default function AdminVerificationsPage() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex flex-wrap gap-2 justify-end">
-                          <button
-                            onClick={() => openDocument("vendor", v.id, v.businessName || "this business")}
-                            className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:border-primary-300 hover:text-primary-700"
-                          >
-                            View document
-                          </button>
                           {v.status === "pending" && (
                             <>
                               <button
@@ -363,7 +325,7 @@ export default function AdminVerificationsPage() {
       <ConfirmDialog
         open={approveTarget !== null}
         title="Approve this verification?"
-        message={`Approve ${approveTarget?.label ?? "this verification"}? This applies to proof of identity or business documents.`}
+        message={`Approve ${approveTarget?.label ?? "this verification"}? The user's profile details will be marked as verified.`}
         confirmLabel="Approve"
         busy={busy}
         onConfirm={() => void confirmApprove()}
@@ -382,102 +344,6 @@ export default function AdminVerificationsPage() {
         onConfirm={(reason) => void confirmReject(reason)}
         onCancel={() => setRejectTarget(null)}
       />
-
-      {documentView && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 p-4"
-          onClick={() => setDocumentView(null)}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-900">
-                  {documentView.document
-                    ? documentView.document.documentName
-                    : "Verification document"}
-                </h3>
-                <p className="mt-1 text-sm text-neutral-500">
-                  {documentView.label}
-                  {documentView.document &&
-                    ` · ${Math.max(1, Math.round(documentView.document.documentSize / 1024))} KB`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDocumentView(null)}
-                aria-label="Close"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mt-4">
-              {documentBusy ? (
-                <div className="flex h-64 items-center justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
-                </div>
-              ) : documentError ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
-                  <p className="text-sm font-medium text-red-700">{documentError}</p>
-                </div>
-              ) : documentView.document ? (
-                documentView.document.documentMime.startsWith("image/") ? (
-                  <img
-                    src={documentView.document.documentUrl}
-                    alt={documentView.document.documentName}
-                    className="max-h-[420px] w-full rounded-xl border border-neutral-200 bg-neutral-50 object-contain"
-                  />
-                ) : (
-                  <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-10 text-center">
-                    <svg
-                      className="mx-auto h-12 w-12 text-neutral-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
-                    <p className="mt-3 text-sm font-medium text-neutral-700">
-                      PDF document
-                    </p>
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {documentView.document.documentName}
-                    </p>
-                  </div>
-                )
-              ) : null}
-            </div>
-
-            {documentView.document && (
-              <div className="mt-4 flex justify-end gap-2">
-                <a
-                  href={documentView.document.documentUrl}
-                  download={documentView.document.documentName}
-                  className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:border-primary-300 hover:text-primary-700"
-                >
-                  Download
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setDocumentView(null)}
-                  className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
-                >
-                  Close
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

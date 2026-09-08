@@ -6,14 +6,8 @@ import type {
   VerificationResponse,
   VerificationDocStatus,
 } from "../types/verification.js";
-import {
-  getVerificationDocument,
-  deleteVerificationDocument,
-} from "./verificationDocumentService.js";
 
-const VERIFICATIONS_COLLECTION = "verifications";
-
-export async function getVerificationStatus(
+const VERIFICATIONS_COLLECTION = "verifications";export async function getVerificationStatus(
   userId: string,
 ): Promise<VerificationResponse | null> {
   const db = getAdminFirestore();
@@ -48,14 +42,6 @@ export async function getVerificationStatus(
 export async function submitVerification(
   userId: string,
 ): Promise<VerificationResponse> {
-  const document = await getVerificationDocument(userId);
-  if (!document) {
-    throw new AppError(
-      400,
-      "Please upload a valid identity document before submitting your verification.",
-    );
-  }
-
   const db = getAdminFirestore();
   const ref = db.collection(VERIFICATIONS_COLLECTION).doc(userId);
 
@@ -92,5 +78,4 @@ export async function removeVerification(userId: string): Promise<void> {
 
   const db = getAdminFirestore();
   await db.collection(VERIFICATIONS_COLLECTION).doc(userId).delete();
-  await deleteVerificationDocument(userId);
 }

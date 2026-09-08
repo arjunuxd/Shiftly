@@ -4,12 +4,13 @@ import {
   discoverJobs,
   type JobDiscoveryParams,
 } from "../../lib/api";
-import { getCurrentIdToken } from "../../lib/auth";
 import { useAuth } from "../../context/useAuth";
 import { useProfile } from "../../context/useProfile";
 import { CompactVerificationBadge } from "../../components/ui/VerificationBadge";
 import { FriendlyAlert } from "../../components/ui/FormField";
 import { getFriendlyError } from "../../lib/errors";
+import RecommendedJobs from "../../components/jobSeeker/RecommendedJobs";
+import SaveJobButton from "../../components/ui/SaveJobButton";
 import type { PublicJob, JobDiscoveryMeta } from "../../types";
 import {
   JOB_CATEGORIES,
@@ -47,24 +48,32 @@ function titleCase(str: string): string {
 
 function JobCard({ job }: { job: PublicJob }) {
   return (
-    <Link
-      to={`/jobs/${job.id}`}
-      className="group block rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-card-hover hover:border-primary-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-    >
-      <div className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-lg font-semibold text-neutral-900 leading-snug group-hover:text-primary-800 transition-colors">
-                {job.title}
-              </h3>
-              <CompactVerificationBadge status={job.vendorVerificationStatus} />
+    <div className="group rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-card-hover hover:border-primary-200 hover:-translate-y-0.5">
+      <Link
+        to={`/jobs/${job.id}`}
+        className="block focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded-lg"
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-lg font-semibold text-neutral-900 leading-snug group-hover:text-primary-800 transition-colors">
+                  {job.title}
+                </h3>
+                <CompactVerificationBadge status={job.vendorVerificationStatus} />
+              </div>
+              {job.distanceKm !== null && job.distanceKm !== undefined && (
+                <p className="mt-0.5 text-xs font-medium text-accent-600">
+                  {job.distanceKm < 1
+                    ? `${Math.round(job.distanceKm * 1000)} m away`
+                    : `${job.distanceKm.toFixed(1)} km away`}
+                </p>
+              )}
             </div>
+            <span className="shrink-0 rounded-full bg-accent-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
+              {formatPay(job.rateType, job.rateAmount)}
+            </span>
           </div>
-          <span className="shrink-0 rounded-full bg-accent-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
-            {formatPay(job.rateType, job.rateAmount)}
-          </span>
-        </div>
 
         <div className="flex flex-wrap gap-2 text-sm text-neutral-500">
           <span className="inline-flex items-center gap-1">
@@ -114,14 +123,18 @@ function JobCard({ job }: { job: PublicJob }) {
             {job.spotsAvailable} opening{job.spotsAvailable !== 1 ? "s" : ""}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors group-hover:bg-primary-700">
-            Apply
+            View Shift
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
             </svg>
           </span>
         </div>
+        </div>
+      </Link>
+      <div className="mt-3 flex items-center justify-end">
+        <SaveJobButton jobId={job.id} />
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -168,6 +181,12 @@ export default function JobDiscoveryPage() {
   );
   const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "newest");
   const [showFilters, setShowFilters] = useState(false);
+  const [myLocation, setMyLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState<string | null>(null);
 
   const fetchJobs = useCallback(
     async (params: JobDiscoveryParams, append = false) => {
@@ -179,11 +198,6 @@ export default function JobDiscoveryPage() {
       setError(null);
 
       try {
-        let token: string | undefined;
-        if (authenticated) {
-          token = await getCurrentIdToken();
-        }
-        void token;
         const result = await discoverJobs(params);
         if (append) {
           setJobs((prev) => [...prev, ...result.jobs]);
@@ -198,7 +212,7 @@ export default function JobDiscoveryPage() {
         setLoadingMore(false);
       }
     },
-    [authenticated],
+    [],
   );
 
   const buildParams = useCallback(
@@ -228,10 +242,50 @@ export default function JobDiscoveryPage() {
       if ((sort === "location") && profile?.location?.city) params.locationCity = profile.location.city;
       if ((sort === "location") && profile?.location?.state) params.locationState = profile.location.state;
 
+      const useCoords = (overrides.lat !== undefined && overrides.lng !== undefined) || myLocation;
+      if (sort === "location" && useCoords) {
+        const lat = overrides.lat ?? myLocation?.lat;
+        const lng = overrides.lng ?? myLocation?.lng;
+        if (lat !== undefined && lng !== undefined) {
+          params.lat = lat;
+          params.lng = lng;
+        }
+      }
+
       return params;
     },
-    [search, category, workType, rateType, minPay, city, state, area, verifiedOnly, sortBy, profile],
+    [search, category, workType, rateType, minPay, city, state, area, verifiedOnly, sortBy, profile, myLocation],
   );
+
+  const handleUseMyLocation = useCallback(() => {
+    if (!("geolocation" in navigator)) {
+      setLocError("Location isn't supported by this browser.");
+      return;
+    }
+    setLocating(true);
+    setLocError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = {
+          lat: Number(pos.coords.latitude.toFixed(4)),
+          lng: Number(pos.coords.longitude.toFixed(4)),
+        };
+        setMyLocation(coords);
+        setSortBy("location");
+        setLocating(false);
+        void fetchJobs(
+          buildParams({ sortBy: "location", lat: coords.lat, lng: coords.lng }),
+        );
+      },
+      () => {
+        setLocating(false);
+        setLocError(
+          "We couldn't access your location. Try allowing location access or set your location in your profile.",
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
+  }, [fetchJobs, buildParams]);
 
   useEffect(() => {
     void fetchJobs(buildParams());
@@ -303,6 +357,7 @@ export default function JobDiscoveryPage() {
     setArea("");
     setVerifiedOnly(false);
     setSortBy("newest");
+    setMyLocation(null);
     setSearchParams({});
     void fetchJobs({ sortBy: "newest" });
   };
@@ -377,6 +432,46 @@ export default function JobDiscoveryPage() {
         >
           Search
         </button>
+        {!myLocation && (
+          <button
+            type="button"
+            onClick={() => void handleUseMyLocation()}
+            disabled={locating}
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 border border-neutral-300 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors shrink-0 disabled:opacity-60"
+          >
+            {locating ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-primary-600" />
+                Locating...
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                </svg>
+                Use my location
+              </>
+            )}
+          </button>
+        )}
+        {myLocation && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-3 rounded-lg bg-accent-50 border border-accent-200 text-sm font-medium text-accent-800 shrink-0">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+            </svg>
+            Near you
+            <button
+              type="button"
+              onClick={() => clearFilters()}
+              className="ml-0.5 rounded-full hover:text-accent-900 focus:outline-none"
+              aria-label="Clear nearby location filter"
+            >
+              &times;
+            </button>
+          </span>
+        )}
         <button
           type="button"
           onClick={() => setShowFilters(!showFilters)}
@@ -395,6 +490,14 @@ export default function JobDiscoveryPage() {
           )}
         </button>
       </div>
+
+      {locError && (
+        <div className="mb-4">
+          <FriendlyAlert icon="error" title="Location unavailable">
+            {locError}
+          </FriendlyAlert>
+        </div>
+      )}
 
       {/* Filters Row - Desktop */}
       <div className="hidden sm:flex flex-wrap items-end gap-3 mb-6">
@@ -688,6 +791,11 @@ export default function JobDiscoveryPage() {
             </span>
           )}
         </div>
+      )}
+
+      {/* Recommended matches (only when no manual filters are active) */}
+      {authenticated && !loading && !search && !hasActiveFilters && (
+        <RecommendedJobs />
       )}
 
       {/* Results */}

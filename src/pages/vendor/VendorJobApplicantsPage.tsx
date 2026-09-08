@@ -5,6 +5,7 @@ import {
   getVendorJobApplications,
   acceptApplication,
   rejectApplication,
+  completeApplication,
   createConversation,
   getJob,
 } from "../../lib/api";
@@ -13,6 +14,7 @@ import { FriendlyAlert } from "../../components/ui/FormField";
 import DataErrorState from "../../components/ui/DataErrorState";
 import { getFriendlyError } from "../../lib/errors";
 import CandidateProfileCard from "../../components/vendor/CandidateProfileCard";
+import RateCandidateModal from "../../components/vendor/RateCandidateModal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
 function formatDate(dateStr: string | null): string {
@@ -33,9 +35,12 @@ export default function VendorJobApplicantsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<{
-    type: "accept" | "reject";
+    type: "accept" | "reject" | "complete";
     app: VendorApplicationWithJob;
   } | null>(null);
+  const [ratingTarget, setRatingTarget] = useState<VendorApplicationWithJob | null>(null);
+  const [ratedId, setRatedId] = useState<string | null>(null);
+  const [markedCompleteId, setMarkedCompleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!jobId) return;
@@ -85,6 +90,22 @@ export default function VendorJobApplicantsPage() {
       await load();
     } catch (err: unknown) {
       setActionError(getFriendlyError(err, "We couldn't decline this applicant. Please try again."));
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleComplete(app: VendorApplicationWithJob) {
+    setPendingAction(null);
+    setActionError(null);
+    setActingId(app.id);
+    try {
+      const token = await getCurrentIdToken();
+      await completeApplication(token, app.id);
+      setMarkedCompleteId(app.id);
+      await load();
+    } catch (err: unknown) {
+      setActionError(getFriendlyError(err, "We couldn't mark this shift as complete. Please try again."));
     } finally {
       setActingId(null);
     }
@@ -201,14 +222,33 @@ export default function VendorJobApplicantsPage() {
                       </button>
                     </>
                   )}
-                  {app.status === "accepted" && (
+                  {(app.status === "accepted" || app.status === "hired") && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={actingId === app.id}
+                        onClick={() => setPendingAction({ type: "complete", app })}
+                        className="inline-flex items-center rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
+                      >
+                        {actingId === app.id ? "..." : "Mark Complete"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actingId === app.id}
+                        onClick={() => void handleStartMessaging(app)}
+                        className="inline-flex items-center rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-60"
+                      >
+                        Message
+                      </button>
+                    </>
+                  )}
+                  {app.status === "completed" && (
                     <button
                       type="button"
-                      disabled={actingId === app.id}
-                      onClick={() => void handleStartMessaging(app)}
-                      className="inline-flex items-center rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
+                      onClick={() => setRatingTarget(app)}
+                      className="inline-flex items-center rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
                     >
-                      {actingId === app.id ? "..." : "Message"}
+                      Rate candidate
                     </button>
                   )}
                 </div>
@@ -220,24 +260,69 @@ export default function VendorJobApplicantsPage() {
 
       <ConfirmDialog
         open={pendingAction !== null}
-        title={isAccept ? "Accept this applicant?" : "Reject this applicant?"}
-        message={
-          isAccept
-            ? `Accepting "${candidateName}" fills one spot and notifies them. This can't be undone.`
-            : `Rejecting "${candidateName}" will notify them. This can't be undone.`
+        title={
+          pendingAction?.type === "complete"
+            ? "Mark this shift as complete?"
+            : isAccept
+              ? "Accept this applicant?"
+              : "Reject this applicant?"
         }
-        confirmLabel={isAccept ? "Accept" : "Reject"}
+        message={
+          pendingAction?.type === "complete"
+            ? `Marking "${candidateName}" as complete records this as a completed shift and opens ratings.`
+            : isAccept
+              ? `Accepting "${candidateName}" fills one spot and notifies them. This can't be undone.`
+              : `Rejecting "${candidateName}" will notify them. This can't be undone.`
+        }
+        confirmLabel={
+          pendingAction?.type === "complete"
+            ? "Mark Complete"
+            : isAccept
+              ? "Accept"
+              : "Reject"
+        }
         busy={actingId === pendingAction?.app.id}
         onConfirm={() => {
           if (!pendingAction) return;
           if (pendingAction.type === "accept") {
             void handleAccept(pendingAction.app);
+          } else if (pendingAction.type === "complete") {
+            void handleComplete(pendingAction.app);
           } else {
             void handleReject(pendingAction.app);
           }
         }}
         onCancel={() => setPendingAction(null)}
       />
+
+      {ratingTarget && ratingTarget.candidate && (
+        <RateCandidateModal
+          applicationId={ratingTarget.id}
+          candidateName={ratingTarget.candidate.fullName}
+          onClose={() => setRatingTarget(null)}
+          onRated={() => {
+            setRatedId(ratingTarget.id);
+            setRatingTarget(null);
+            void load();
+          }}
+        />
+      )}
+
+      {ratedId && (
+        <div className="mt-4">
+          <FriendlyAlert icon="success" title="Thank you!">
+            Your rating helps this candidate build a trusted reputation.
+          </FriendlyAlert>
+        </div>
+      )}
+
+      {markedCompleteId && (
+        <div className="mt-4">
+          <FriendlyAlert icon="success" title="Shift marked complete">
+            This candidate can now receive a rating from you.
+          </FriendlyAlert>
+        </div>
+      )}
     </div>
   );
 }

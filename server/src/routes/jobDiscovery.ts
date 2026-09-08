@@ -4,6 +4,7 @@ import {
   getPublishedJobs,
   getPublishedJob,
 } from "../services/jobDiscoveryService.js";
+import { getRecommendedJobs } from "../services/recommendationService.js";
 import { getApplicationForJob } from "../services/applicationService.js";
 import { getJob } from "../services/jobService.js";
 import {
@@ -41,6 +42,33 @@ const VALID_SORT = ["newest", "pay-high", "pay-low", "location"];
 const router = Router();
 
 router.get(
+  "/recommended",
+  async (req: Request, res: Response): Promise<void> => {
+    const authHeader = req.header("authorization");
+    if (!authHeader) {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+    const tokenMatch = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
+    if (!tokenMatch) {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+
+    const { getAdminAuth } = await import("../config/firebaseAdmin.js");
+    const decoded = await getAdminAuth().verifyIdToken(tokenMatch[1]);
+    if (decoded.role !== "job_seeker") {
+      res.status(403).json({ error: "Only job seekers can receive recommendations." });
+      return;
+    }
+
+    const limit = Math.min(Number(req.query.limit) || 6, 10);
+    const jobs = await getRecommendedJobs(decoded.uid, limit);
+    res.json({ jobs });
+  },
+);
+
+router.get(
   "/",
   async (req: Request, res: Response): Promise<void> => {
     const search = validateSearchParam(req.query.search);
@@ -73,6 +101,17 @@ router.get(
       }
     }
 
+    let lat: number | undefined;
+    let lng: number | undefined;
+    if (typeof req.query.lat === "string" && req.query.lat.trim() !== "") {
+      const parsed = Number(req.query.lat);
+      if (Number.isFinite(parsed) && parsed >= -90 && parsed <= 90) lat = parsed;
+    }
+    if (typeof req.query.lng === "string" && req.query.lng.trim() !== "") {
+      const parsed = Number(req.query.lng);
+      if (Number.isFinite(parsed) && parsed >= -180 && parsed <= 180) lng = parsed;
+    }
+
     const filters = {
       ...(search && { search }),
       ...(jobCategory && { jobCategory }),
@@ -85,6 +124,7 @@ router.get(
       ...(verifiedOnly && { verifiedOnly: true }),
       sortBy: sortBy as "newest" | "pay-high" | "pay-low" | "location",
       ...(locationHint && { locationHint }),
+      ...(lat !== undefined && lng !== undefined ? { lat, lng } : {}),
     };
 
     const result = await getPublishedJobs(filters, pageToken);

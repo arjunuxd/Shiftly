@@ -193,6 +193,9 @@ function validateCertificate(cert: unknown, index: number): ValidationError | nu
   const urlErr = validateOptionalUrl(c.credentialUrl, `certificates[${index}].credentialUrl`);
   if (urlErr) return urlErr;
 
+  const idErr = validateOptionalString(c.credentialId, `certificates[${index}].credentialId`, 120);
+  if (idErr) return idErr;
+
   return null;
 }
 
@@ -226,8 +229,8 @@ function validateOptionalUrl(value: unknown, fieldName: string): ValidationError
   }
   try {
     const parsed = new URL(value);
-    if (!["http:", "https:", "gs:"].includes(parsed.protocol)) {
-      return { field: fieldName, message: `${fieldName} must be a valid http(s) or storage URL.` };
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return { field: fieldName, message: `${fieldName} must be a valid http(s) URL.` };
     }
   } catch {
     return { field: fieldName, message: `${fieldName} must be a valid URL.` };

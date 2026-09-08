@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
-import { getRoleHomePath } from "../lib/roles";
+import { getRoleProfilePath } from "../lib/roles";
 import NotificationBell from "./notifications/NotificationBell";
 
 const NAV_LINKS = [
@@ -18,7 +18,7 @@ export default function Header() {
   const navigate = useNavigate();
   const { authenticated, emailVerified, role, accountStatus, signOut } = useAuth();
 
-  const dashboardPath = role ? getRoleHomePath(role) : null;
+  const profilePath = role ? getRoleProfilePath(role) : null;
   const isHome = location.pathname === "/";
   const showSearch = authenticated && role === "job_seeker";
 
@@ -141,12 +141,12 @@ export default function Header() {
 ) : (
                 <>
                   <NotificationBell />
-                  {dashboardPath && (
+                  {profilePath && (
                     <Link
-                      to={dashboardPath}
+                      to={profilePath}
                       className="px-4 py-2 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
                     >
-                      Home
+                      Profile
                     </Link>
                   )}
                   <button
@@ -250,13 +250,13 @@ export default function Header() {
                       Verify email
                     </Link>
                   )}
-                  {dashboardPath && (
+                  {profilePath && (
                     <Link
-                      to={dashboardPath}
+                      to={profilePath}
                       className="mx-3 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg text-center hover:bg-primary-700"
                       onClick={() => setMobileOpen(false)}
                     >
-                      Home
+                      Profile
                     </Link>
                   )}
                   <button

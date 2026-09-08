@@ -7,6 +7,8 @@ import { getCurrentIdToken } from "../../lib/auth";
 import { VerificationBadge } from "../../components/ui/VerificationBadge";
 import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
 import ProfileCompletionCard from "../../components/profile/ProfileCompletionCard";
+import { ShiftReadyCard } from "../../components/profile/ShiftReady";
+import ReputationSummaryCard from "../../components/profile/ReputationSummaryCard";
 import type { VerificationRecord, PublicJob, Application, Conversation } from "../../types";
 import { APPLICATION_STATUS_LABELS } from "../../types";
 
@@ -205,6 +207,15 @@ export default function JobSeekerDashboard() {
             </div>
           )}
         </div>
+
+        {/* Shift Ready */}
+        <ShiftReadyCard
+          profile={profile}
+          emailVerified={currentUser?.emailVerified ?? false}
+        />
+
+        {/* Reputation */}
+        <ReputationSummaryCard userId={currentUser?.uid} role="job_seeker" />
 
         {/* Profile Completion */}
         {profile && profile.completeness < 100 && <ProfileCompletionCard />}

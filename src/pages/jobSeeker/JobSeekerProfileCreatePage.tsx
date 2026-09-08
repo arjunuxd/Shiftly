@@ -64,7 +64,7 @@ export default function JobSeekerProfileCreatePage() {
 
   useEffect(() => {
     if (!profileLoading && profile) {
-      navigate("/job-seeker/profile/edit", { replace: true });
+      navigate("/job-seeker/profile", { replace: true });
     }
   }, [profileLoading, profile, navigate]);
 

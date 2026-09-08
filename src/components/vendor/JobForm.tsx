@@ -116,8 +116,8 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
       setError("Please enter a rate amount greater than zero.");
       return;
     }
-    if (!form.location.city.trim() || !form.location.country.trim()) {
-      setError("City and country are required for the job location.");
+    if (!form.location.city.trim() || !form.location.state.trim() || !form.location.country.trim()) {
+      setError("City, state, and country are required for the job location.");
       return;
     }
     if (form.startDate && form.endDate && form.startDate > form.endDate) {
@@ -316,12 +316,6 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
             placeholder="e.g. 123 Market Street"
           />
           <div className="grid gap-4 sm:grid-cols-3">
-            <FormField
-              label="Street address"
-              value={form.location.address}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation("address", e.target.value)}
-              placeholder="e.g. 123 Market Street"
-            />
             <FormField
               label="Area"
               value={form.location.area ?? ""}

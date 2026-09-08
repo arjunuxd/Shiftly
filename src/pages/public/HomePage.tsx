@@ -154,16 +154,16 @@ const TRUST_POINTS = [
 
 const FEATURES = [
   {
-    title: "Apply with your profile",
-    desc: "Up to date resume, skills, and availability, all ready to go.",
+    title: "Get matched to your next shift",
+    desc: "Smart matching surfaces jobs that fit your skills, pay, and schedule — delivered right to your notifications.",
   },
   {
-    title: "Message employers directly",
-    desc: "Ask questions and negotiate right inside the app.",
+    title: "Save shifts for later",
+    desc: "Bookmark interesting opportunities and revisit them anytime with one tap.",
   },
   {
-    title: "Track every application",
-    desc: "See status updates in real time, so you always know where you stand.",
+    title: "Earn a reputation worth repeating",
+    desc: "Rate completed shifts to build a two-way reputation that unlocks better, repeat work.",
   },
 ];
 
@@ -569,12 +569,13 @@ export default function HomePage() {
                 Made for job seekers
               </p>
               <h2 className="mb-4 text-2xl font-bold text-neutral-900 sm:text-3xl">
-                From browse to applied, in seconds.
+                Matched, saved, and applied — fast.
               </h2>
               <p className="leading-relaxed text-neutral-500">
                 No more hunting for pay details or wondering if a listing is
-                legit. Shiftly shows you everything a job involves up front and
-                lets you apply with one tap.
+                legit. Shiftly shows you everything a job involves up front,
+                matches you to the right shifts, and lets you apply with one
+                tap.
               </p>
               <div className="mt-8 space-y-4">
                 {FEATURES.map((f) => (

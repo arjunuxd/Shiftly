@@ -59,8 +59,20 @@ export default function LoginPage() {
 
     setPending(true);
     try {
-      await loginWithEmail(email.trim(), password);
+      const user = await loginWithEmail(email.trim(), password);
+
+      if (!user.emailVerified) {
+        navigate("/verify-email", { replace: true });
+        return;
+      }
+
       const role = await resolveRole();
+      if (!role) {
+        setError(
+          "You're signed in, but we couldn't load your account type. Please refresh the page or try again in a moment.",
+        );
+        return;
+      }
       navigate(resolveDestination(role), { replace: true });
     } catch (err) {
       setError(getAuthErrorMessage(err));

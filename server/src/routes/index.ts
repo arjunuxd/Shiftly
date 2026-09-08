@@ -13,6 +13,9 @@ import conversationsRoutes from "./conversations.js";
 import adminRoutes from "./admin.js";
 import notificationsRoutes from "./notifications.js";
 import uploadsRoutes from "./uploads.js";
+import savedJobsRoutes from "./savedJobs.js";
+import jobAlertsRoutes from "./jobAlerts.js";
+import reviewsRoutes from "./reviews.js";
 
 const router = Router();
 
@@ -32,6 +35,9 @@ router.use("/vendor/applications", vendorApplicationsRoutes);
 router.use("/conversations", conversationsRoutes);
 router.use("/notifications", notificationsRoutes);
 router.use("/uploads", uploadsRoutes);
+router.use("/saved-jobs", savedJobsRoutes);
+router.use("/job-alerts", jobAlertsRoutes);
+router.use("/reviews", reviewsRoutes);
 router.use("/admin", adminRoutes);
 
 export default router;

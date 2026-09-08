@@ -37,6 +37,8 @@ const VALID_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
   applied: ["withdrawn", "accepted", "rejected"],
   withdrawn: [],
   accepted: [],
+  hired: [],
+  completed: [],
   rejected: [],
 };
 

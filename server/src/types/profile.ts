@@ -54,6 +54,7 @@ export interface ProfileCertificate {
   issuer: string;
   issueDate: string;
   expiryDate: string;
+  credentialId?: string;
   credentialUrl: string;
 }
 

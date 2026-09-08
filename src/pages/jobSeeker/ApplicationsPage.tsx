@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getMyApplications, withdrawApplication, createConversation } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import JobSeekerNav from "../../components/jobSeeker/JobSeekerNav";
+import RateCandidateModal from "../../components/vendor/RateCandidateModal";
 import type { Application, ApplicationStatus } from "../../types";
 import { APPLICATION_STATUS_LABELS } from "../../types";
 import { FriendlyAlert } from "../../components/ui/FormField";
@@ -51,6 +52,8 @@ function ApplicationCard({
   const [confirming, setConfirming] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [messaging, setMessaging] = useState(false);
+  const [rating, setRating] = useState(false);
+  const [rated, setRated] = useState(false);
 
   const confirmWithdraw = async () => {
     setWithdrawing(true);
@@ -85,6 +88,7 @@ function ApplicationCard({
 
   const canWithdraw = application.status === "applied";
   const canMessage = application.status === "accepted" || application.status === "hired";
+  const canRate = application.status === "completed";
 
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-card">
@@ -138,8 +142,43 @@ function ApplicationCard({
               Withdraw
             </button>
           )}
+          {canRate && (
+            <button
+              type="button"
+              onClick={() => setRating(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-amber-300 bg-amber-50 text-amber-700 text-sm font-medium rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+              </svg>
+              Rate employer
+            </button>
+          )}
         </div>
       </div>
+
+      {rated && (
+        <div className="mt-3">
+          <FriendlyAlert icon="success" title="Thank you!">
+            Your review helps other workers trust this employer.
+          </FriendlyAlert>
+        </div>
+      )}
+
+      {rating && (
+        <RateCandidateModal
+          applicationId={application.id}
+          candidateName="this employer"
+          title={`Rate ${application.jobTitle ?? "this employer"}`}
+          subtitle="Your rating builds this employer's reputation and helps other workers trust them."
+          placeholder="Was this employer reliable, fair, and prompt with payment?"
+          onClose={() => setRating(false)}
+          onRated={() => {
+            setRating(false);
+            setRated(true);
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirming}

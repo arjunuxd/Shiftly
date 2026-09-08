@@ -13,3 +13,17 @@ export function getRoleHomePath(role: UserRole | null): string {
   }
   return ROLE_HOME_PATH[role] ?? "/";
 }
+
+export const ROLE_PROFILE_PATH: Record<UserRole, string> = {
+  job_seeker: "/job-seeker/profile",
+  vendor: "/vendor/profile",
+  admin: "/admin",
+  superadmin: "/admin",
+};
+
+export function getRoleProfilePath(role: UserRole | null): string {
+  if (!role) {
+    return "/";
+  }
+  return ROLE_PROFILE_PATH[role] ?? "/";
+}

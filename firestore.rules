@@ -80,6 +80,9 @@ service cloud.firestore {
           && (get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantVendorId == request.auth.uid
               || get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantJobSeekerId == request.auth.uid);
         allow create: if request.auth != null
+          && exists(/databases/$(database)/documents/conversations/$(conversationId))
+          && (get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantVendorId == request.auth.uid
+              || get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantJobSeekerId == request.auth.uid)
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.keys().hasAll(["senderId", "text", "createdAt"])
           && request.resource.data.text is string

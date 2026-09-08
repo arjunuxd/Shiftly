@@ -131,11 +131,8 @@ export function calculateCompleteness(profile: {
     score += 5;
   }
 
-  if (profile.photoUrl && profile.photoUrl.trim().length > 0) {
-    score += 5;
-  }
   if (profile.resumeUrl && profile.resumeUrl.trim().length > 0) {
-    score += 5;
+    score += 10;
   }
   if (Array.isArray(profile.certificates) && profile.certificates.length > 0) {
     score += 5;

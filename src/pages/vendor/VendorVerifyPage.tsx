@@ -3,16 +3,7 @@ import { Link } from "react-router-dom";
 import { useVendorProfile } from "../../context/useVendorProfile";
 import { FriendlyAlert } from "../../components/ui/FormField";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
-import VerificationDocumentUpload, {
-  type VerificationDocumentValue,
-} from "../../components/verification/VerificationDocumentUpload";
-import type { VerificationDocumentRecord } from "../../types";
-import {
-  getVendorVerificationDocument,
-  saveVendorVerificationDocument,
-  deleteVendorVerificationDocument,
-  removeVendorVerification as apiRemoveVendorVerification,
-} from "../../lib/api";
+import { removeVendorVerification as apiRemoveVendorVerification } from "../../lib/api";
 import { getCurrentIdToken } from "../../lib/auth";
 import { getFriendlyError } from "../../lib/errors";
 
@@ -54,6 +45,27 @@ function StatusIcon({ status }: { status: string }) {
   );
 }
 
+function CheckItem({ label, done }: { label: string; done: boolean }) {
+  return (
+    <li className="flex items-center gap-2.5">
+      <span
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+          done
+            ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+            : "border-neutral-300 bg-white text-neutral-300"
+        }`}
+      >
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </span>
+      <span className={`text-sm ${done ? "text-neutral-700" : "text-neutral-500"}`}>
+        {label}
+      </span>
+    </li>
+  );
+}
+
 export default function VendorVerifyPage() {
   const {
     profile,
@@ -62,9 +74,6 @@ export default function VendorVerifyPage() {
     fetchProfile,
     submitVerification,
   } = useVendorProfile();
-  const [documentRecord, setDocumentRecord] = useState<VerificationDocumentRecord | null>(
-    null,
-  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,35 +84,6 @@ export default function VendorVerifyPage() {
   useEffect(() => {
     void fetchProfile().finally(() => setLoading(false));
   }, [fetchProfile]);
-
-  useEffect(() => {
-    let active = true;
-    getCurrentIdToken()
-      .then((token) => getVendorVerificationDocument(token))
-      .then((doc) => {
-        if (active) setDocumentRecord(doc);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function handleSaveDocument(doc: {
-    documentUrl: string;
-    documentName: string;
-    documentSize: number;
-  }) {
-    const token = await getCurrentIdToken();
-    const saved = await saveVendorVerificationDocument(token, doc);
-    setDocumentRecord(saved);
-  }
-
-  async function handleRemoveDocument() {
-    const token = await getCurrentIdToken();
-    await deleteVendorVerificationDocument(token);
-    setDocumentRecord(null);
-  }
 
   async function handleSubmit() {
     setError(null);
@@ -129,7 +109,6 @@ export default function VendorVerifyPage() {
     try {
       const token = await getCurrentIdToken();
       await apiRemoveVendorVerification(token);
-      setDocumentRecord(null);
       await fetchProfile();
       setRemoveOpen(false);
       setSuccess(false);
@@ -144,13 +123,14 @@ export default function VendorVerifyPage() {
   }
 
   const status = profile?.verification.status ?? verification?.status ?? "unverified";
-  const documentValue: VerificationDocumentValue | null = documentRecord
-    ? {
-        documentUrl: documentRecord.documentUrl,
-        documentName: documentRecord.documentName,
-        documentMime: documentRecord.documentMime,
-      }
-    : null;
+
+  const checks = [
+    { label: "Business name", done: Boolean(profile?.businessInfo.businessName) },
+    { label: "Business description", done: Boolean(profile?.businessInfo.description) },
+    { label: "Contact email", done: Boolean(profile?.businessInfo.contactEmail) },
+    { label: "Business location", done: Boolean(profile?.location.city && profile?.location.country) },
+  ];
+  const checksDone = checks.filter((c) => c.done).length;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
@@ -223,19 +203,9 @@ export default function VendorVerifyPage() {
                 </div>
               )}
               <p className="text-neutral-500 mb-6">
-                Your business verification could not be approved. Please upload
-                a valid business document and resubmit.
+                Your business verification could not be approved. Update your
+                business details and resubmit.
               </p>
-              <div className="mb-6">
-                <VerificationDocumentUpload
-                  label="Business document"
-                  hint="A registration document, license, or other proof of your business."
-                  value={documentValue}
-                  onSave={handleSaveDocument}
-                  onRemove={handleRemoveDocument}
-                  disabled={submitting}
-                />
-              </div>
               {error && (
                 <div className="mb-4">
                   <FriendlyAlert icon="error" title="We couldn't resubmit">
@@ -253,16 +223,11 @@ export default function VendorVerifyPage() {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={submitting || !profile || !documentRecord}
+                disabled={submitting}
                 className="inline-flex items-center rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
               >
                 {submitting ? "Submitting..." : "Resubmit Verification"}
               </button>
-              {!documentRecord && (
-                <p className="mt-3 text-xs text-neutral-400">
-                  Please upload a document before resubmitting.
-                </p>
-              )}
             </>
           )}
 
@@ -275,25 +240,18 @@ export default function VendorVerifyPage() {
                 Business verification helps job seekers trust your listings and
                 increases application quality.
               </p>
-              <div className="rounded-lg bg-neutral-50 p-4 mb-6 text-left">
-                <p className="text-sm font-medium text-neutral-700 mb-2">
-                  What's needed:
+              <div className="rounded-xl bg-neutral-50 p-5 mb-6 text-left">
+                <p className="text-sm font-medium text-neutral-700 mb-3">
+                  Your verification includes:
                 </p>
-                <ul className="text-sm text-neutral-500 space-y-1">
-                  <li>• A complete business profile</li>
-                  <li>• A valid business registration document</li>
-                  <li>• JPG, PNG, WEBP, or PDF up to 500 KB</li>
+                <ul className="space-y-2">
+                  {checks.map((c) => (
+                    <CheckItem key={c.label} label={c.label} done={c.done} />
+                  ))}
                 </ul>
-              </div>
-              <div className="mb-6">
-                <VerificationDocumentUpload
-                  label="Business document"
-                  hint="A registration document, license, or other proof of your business."
-                  value={documentValue}
-                  onSave={handleSaveDocument}
-                  onRemove={handleRemoveDocument}
-                  disabled={submitting}
-                />
+                <p className="mt-3 text-xs text-neutral-400">
+                  {checksDone} of {checks.length} details in place.
+                </p>
               </div>
               {error && (
                 <div className="mb-4">
@@ -312,7 +270,7 @@ export default function VendorVerifyPage() {
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={submitting || !profile || !documentRecord}
+                disabled={submitting || !profile || checksDone < checks.length}
                 className="inline-flex items-center rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
               >
                 {submitting ? "Submitting..." : "Submit for Verification"}
@@ -323,10 +281,9 @@ export default function VendorVerifyPage() {
                   verification.
                 </p>
               )}
-              {profile && !documentRecord && (
+              {profile && checksDone < checks.length && (
                 <p className="mt-3 text-xs text-neutral-400">
-                  Please upload a valid business document before submitting for
-                  verification.
+                  Complete the checklist above to enable submission.
                 </p>
               )}
             </>

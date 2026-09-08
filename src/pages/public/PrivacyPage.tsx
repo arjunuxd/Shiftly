@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 
-const SECTIONS = [
+const SECTIONS: { title: string; content: ReactNode }[] = [
   {
     title: "1. Information We Collect",
     content: `When you create an account, we collect your name, email address, and any profile information you choose to provide. For job seekers, this may include skills, work history, and availability. For vendors, this includes business name and registration details.
@@ -31,9 +32,20 @@ While we take reasonable measures to protect your information, no method of tran
   },
   {
     title: "6. Your Rights",
-    content: `Depending on your location, you may have the right to access, correct, or delete your personal data. You can manage most of your data directly through your Shiftly account settings.
-
-To exercise additional rights, contact us at support@shiftly.app.`,
+    content: (
+      <p>
+        Depending on your location, you may have the right to access, correct, or delete your personal data. You can manage most of your data directly through your Shiftly account settings.
+        <br />
+        To exercise additional rights,{" "}
+        <Link
+          to="/contact"
+          className="font-medium text-primary-600 hover:text-primary-700 underline"
+        >
+          contact us through the contact page
+        </Link>
+        .
+      </p>
+    ),
   },
   {
     title: "7. Cookies",
@@ -51,9 +63,18 @@ You can manage cookie preferences through your browser settings.`,
   },
   {
     title: "10. Contact",
-    content: `If you have questions about this Privacy Policy, contact us at:
-
-support@shiftly.app`,
+    content: (
+      <p>
+        If you have questions about this Privacy Policy,{" "}
+        <Link
+          to="/contact"
+          className="font-medium text-primary-600 hover:text-primary-700 underline"
+        >
+          contact us through the contact page
+        </Link>
+        .
+      </p>
+    ),
   },
 ];
 

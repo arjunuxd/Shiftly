@@ -109,6 +109,21 @@ export function validateJobFields(body: unknown): ValidationError[] {
     }
   }
 
+  if (b.requiredSkills !== undefined) {
+    if (!Array.isArray(b.requiredSkills)) {
+      errors.push({ field: "requiredSkills", message: "Required skills must be a list of skills." });
+    } else if (b.requiredSkills.length > 30) {
+      errors.push({ field: "requiredSkills", message: "Required skills may include at most 30 skills." });
+    } else {
+      for (const skill of b.requiredSkills) {
+        if (typeof skill !== "string" || skill.trim().length === 0 || skill.trim().length > 60) {
+          errors.push({ field: "requiredSkills", message: "Each required skill must be a short text (max 60 characters)." });
+          break;
+        }
+      }
+    }
+  }
+
   if (b.location !== undefined) {
     if (!b.location || typeof b.location !== "object") {
       errors.push({ field: "location", message: "Location must be an object." });
@@ -124,6 +139,18 @@ export function validateJobFields(body: unknown): ValidationError[] {
       if (addressErr) errors.push(addressErr);
       const areaErr = validateOptionalString(loc.area, "location.area", 100);
       if (areaErr) errors.push(areaErr);
+      if (loc.latitude !== undefined && loc.latitude !== null) {
+        const lat = Number(loc.latitude);
+        if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+          errors.push({ field: "location.latitude", message: "Latitude must be a number between -90 and 90." });
+        }
+      }
+      if (loc.longitude !== undefined && loc.longitude !== null) {
+        const lng = Number(loc.longitude);
+        if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+          errors.push({ field: "location.longitude", message: "Longitude must be a number between -180 and 180." });
+        }
+      }
     }
   }
 

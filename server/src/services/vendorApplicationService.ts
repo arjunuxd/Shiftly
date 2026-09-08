@@ -67,6 +67,7 @@ export async function getApplicationsForVendorJob(
 
   const candidateSummaries = await getCandidateSummaries(
     applications.map((a) => a.jobSeekerId),
+    vendorId,
   );
 
   return applications.map((app) => ({
@@ -77,6 +78,7 @@ export async function getApplicationsForVendorJob(
 
 async function getCandidateSummaries(
   jobSeekerIds: string[],
+  vendorId: string,
 ): Promise<Map<string, VendorCandidateSummary>> {
   const db = getAdminFirestore();
   const map = new Map<string, VendorCandidateSummary>();
@@ -102,8 +104,35 @@ async function getCandidateSummaries(
         resumeUrl: data.resumeUrl ?? null,
         resumeName: data.resumeName ?? null,
         completeness: calculateCompleteness(data),
+        repeatHire: false,
+        completedWithVendor: 0,
+        averageRating: null,
+        ratingCount: 0,
+        completedJobs: 0,
       };
       map.set(doc.id, summary);
+    }
+  }
+
+  // Trusted worker signals (real data only).
+  if (map.size > 0) {
+    const { getReputationForUser, hasWorkedWithVendor, getCompletedJobsWithVendor } =
+      await import("./reputationService.js");
+
+    for (const seekerId of map.keys()) {
+      const [worked, completedWithVendor, rep] = await Promise.all([
+        hasWorkedWithVendor(seekerId, vendorId),
+        getCompletedJobsWithVendor(seekerId, vendorId),
+        getReputationForUser(seekerId),
+      ]);
+      const summary = map.get(seekerId);
+      if (summary) {
+        summary.repeatHire = worked;
+        summary.completedWithVendor = completedWithVendor;
+        summary.averageRating = rep.averageRating;
+        summary.ratingCount = rep.ratingCount;
+        summary.completedJobs = rep.completedJobs;
+      }
     }
   }
 
@@ -120,6 +149,11 @@ export interface VendorCandidateSummary {
   resumeUrl: string | null;
   resumeName: string | null;
   completeness: number;
+  repeatHire: boolean;
+  completedWithVendor: number;
+  averageRating: number | null;
+  ratingCount: number;
+  completedJobs: number;
 }
 
 export async function getApplicationForVendor(
@@ -258,6 +292,48 @@ export async function rejectApplication(
   return serializeApplication(updated.id, updated.data() as ApplicationDocument);
 }
 
+export async function completeApplication(
+  applicationId: string,
+  vendorId: string,
+): Promise<ApplicationResponse> {
+  const db = getAdminFirestore();
+  const ref = db.collection(COLLECTION).doc(applicationId);
+  const snapshot = await ref.get();
+
+  if (!snapshot.exists) {
+    throw new AppError(404, "Application not found.");
+  }
+
+  const data = snapshot.data() as ApplicationDocument;
+  if (data.vendorId !== vendorId) {
+    throw new AppError(403, "You do not have access to this application.");
+  }
+  if (data.status !== "accepted" && data.status !== "hired") {
+    throw new AppError(
+      400,
+      `Only hired applications can be marked complete (current status: "${data.status}").`,
+    );
+  }
+
+  await ref.update({
+    status: "completed" as ApplicationStatus,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  const job = await getJob(data.jobId);
+  await createNotification({
+    recipientId: data.jobSeekerId,
+    type: "JOB_COMPLETED",
+    title: "Work marked complete",
+    body: `Your shift for "${job?.title ?? "this job"}" has been marked as complete.`,
+    actorId: vendorId,
+    data: { jobId: data.jobId, applicationId },
+  });
+
+  const updated = await ref.get();
+  return serializeApplication(updated.id, updated.data() as ApplicationDocument);
+}
+
 function sanitizeCandidateProfile(
   profile: (ProfileDocument & { id: string }) | null,
 ): CandidateProfile | null {
@@ -279,6 +355,11 @@ function sanitizeCandidateProfile(
     resumeName: profile.resumeName ?? null,
     portfolioLinks: profile.portfolioLinks ?? [],
     completeness: calculateCompleteness(profile),
+    averageRating: null,
+    ratingCount: 0,
+    completedJobs: 0,
+    repeatHire: false,
+    completedWithVendor: 0,
   };
 }
 
@@ -297,6 +378,11 @@ export interface CandidateProfile {
   resumeName: string | null;
   portfolioLinks: ProfileDocument["portfolioLinks"];
   completeness: number;
+  averageRating: number | null;
+  ratingCount: number;
+  completedJobs: number;
+  repeatHire: boolean;
+  completedWithVendor: number;
 }
 
 export async function getCandidateProfileForVendor(
@@ -329,6 +415,20 @@ export async function getCandidateProfileForVendor(
   if (!candidate) {
     throw new AppError(404, "This candidate has not completed their profile yet.");
   }
+
+  const { getReputationForUser, hasWorkedWithVendor, getCompletedJobsWithVendor } =
+    await import("./reputationService.js");
+  const [rep, worked, completedWithVendor] = await Promise.all([
+    getReputationForUser(appData.jobSeekerId),
+    hasWorkedWithVendor(appData.jobSeekerId, vendorId),
+    getCompletedJobsWithVendor(appData.jobSeekerId, vendorId),
+  ]);
+
+  candidate.averageRating = rep.averageRating;
+  candidate.ratingCount = rep.ratingCount;
+  candidate.completedJobs = rep.completedJobs;
+  candidate.repeatHire = worked;
+  candidate.completedWithVendor = completedWithVendor;
 
   return candidate;
 }

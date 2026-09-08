@@ -10,6 +10,8 @@ export interface JobDiscoveryFilters {
   verifiedOnly?: boolean;
   sortBy?: "newest" | "pay-high" | "pay-low" | "location";
   locationHint?: { city?: string; state?: string };
+  lat?: number;
+  lng?: number;
 }
 
 export interface JobDiscoveryPagination {
@@ -37,6 +39,8 @@ export interface JobDiscoveryItem {
     country: string;
     address: string;
     area?: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   startDate: string;
   endDate: string;
@@ -47,4 +51,5 @@ export interface JobDiscoveryItem {
   publishedAt: string | null;
   closedAt: string | null;
   vendorVerificationStatus: "unverified" | "pending" | "approved" | "rejected";
+  distanceKm?: number | null;
 }

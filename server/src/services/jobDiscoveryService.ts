@@ -26,6 +26,7 @@ function serializeJob(id: string, data: JobDocument): JobResponse {
     workType: data.workType,
     rateType: data.rateType,
     rateAmount: data.rateAmount,
+    requiredSkills: data.requiredSkills ?? undefined,
     location: data.location,
     startDate: data.startDate,
     endDate: data.endDate,
@@ -188,14 +189,47 @@ async function getVerificationMap(
 function toPublicJob(
   job: JobResponse,
   verificationMap: Map<string, string>,
+  location?: { lat?: number; lng?: number },
 ): JobDiscoveryItem {
   const { vendorId: _, ...rest } = job;
+  let distanceKm: number | null = null;
+  if (
+    location &&
+    typeof location.lat === "number" &&
+    typeof location.lng === "number" &&
+    typeof job.location.latitude === "number" &&
+    typeof job.location.longitude === "number"
+  ) {
+    distanceKm = haversineKm(
+      location.lat,
+      location.lng,
+      job.location.latitude,
+      job.location.longitude,
+    );
+  }
   return {
     ...rest,
     vendorVerificationStatus: (verificationMap.get(
       job.vendorId,
     ) ?? "unverified") as JobDiscoveryItem["vendorVerificationStatus"],
+    distanceKm,
   };
+}
+
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 export async function getPublishedJobs(
@@ -237,7 +271,20 @@ export async function getPublishedJobs(
   const vendIds = new Set(jobs.map((job) => job.vendorId));
   const verificationMap = await getVerificationMap(vendIds);
 
-  let publicJobs = jobs.map((job) => toPublicJob(job, verificationMap));
+  const locationCoords =
+    typeof filters.lat === "number" && typeof filters.lng === "number"
+      ? { lat: filters.lat, lng: filters.lng }
+      : undefined;
+  let publicJobs = jobs.map((job) =>
+    toPublicJob(job, verificationMap, locationCoords),
+  );
+
+  if (locationCoords) {
+    publicJobs = publicJobs.filter(
+      (job) => typeof job.distanceKm === "number",
+    );
+    publicJobs.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+  }
 
   if (filters.verifiedOnly) {
     publicJobs = publicJobs.filter(

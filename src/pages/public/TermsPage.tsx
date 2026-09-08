@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 
-const SECTIONS = [
+const SECTIONS: { title: string; content: ReactNode }[] = [
   {
     title: "1. Acceptance of Terms",
     content: `By creating an account or using Shiftly, you agree to these Terms of Service. If you do not agree, do not use the platform.`,
@@ -61,7 +62,18 @@ You may delete your account at any time through your account settings.`,
   },
   {
     title: "13. Contact",
-    content: `Questions about these Terms? Contact us at support@shiftly.app.`,
+    content: (
+      <p>
+        Questions about these Terms?{" "}
+        <Link
+          to="/contact"
+          className="font-medium text-primary-600 hover:text-primary-700 underline"
+        >
+          Contact us through the contact page
+        </Link>
+        .
+      </p>
+    ),
   },
 ];
 

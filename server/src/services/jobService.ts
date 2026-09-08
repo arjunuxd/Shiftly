@@ -25,6 +25,7 @@ function serializeJob(id: string, data: JobDocument): JobResponse {
     workType: data.workType,
     rateType: data.rateType,
     rateAmount: data.rateAmount,
+    requiredSkills: data.requiredSkills ?? undefined,
     location: data.location,
     startDate: data.startDate,
     endDate: data.endDate,
@@ -155,7 +156,17 @@ export async function publishJob(
   });
 
   const updated = await ref.get();
-  return serializeJob(updated.id, updated.data() as JobDocument);
+  const published = serializeJob(updated.id, updated.data() as JobDocument);
+
+  // Notify job seekers whose saved preferences match this shift.
+  try {
+    const { notifyMatchingSeekersForJob } = await import("./jobAlertService.js");
+    await notifyMatchingSeekersForJob(published);
+  } catch {
+    // Alert delivery must never block publishing.
+  }
+
+  return published;
 }
 
 export async function closeJob(

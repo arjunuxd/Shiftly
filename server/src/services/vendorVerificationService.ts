@@ -3,10 +3,6 @@ import { getAdminFirestore } from "../config/firebaseAdmin.js";
 import { AppError } from "../middleware/errorHandler.js";
 import type { VendorProfileResponse } from "../types/vendorProfile.js";
 import { getVendorProfile } from "./vendorProfileService.js";
-import {
-  getVerificationDocument,
-  deleteVerificationDocument,
-} from "./verificationDocumentService.js";
 
 const COLLECTION = "vendorProfiles";
 
@@ -29,14 +25,6 @@ export async function submitVendorVerification(
   }
   if (existing.verification.status === "pending") {
     throw new AppError(409, "Verification is already pending review.");
-  }
-
-  const document = await getVerificationDocument(uid);
-  if (!document) {
-    throw new AppError(
-      400,
-      "Please upload a valid business document before submitting your verification.",
-    );
   }
 
   const db = getAdminFirestore();
@@ -78,7 +66,6 @@ export async function removeVendorVerification(
     "verification.rejectionReason": null,
     updatedAt: FieldValue.serverTimestamp(),
   });
-  await deleteVerificationDocument(uid);
 
   return {
     status: "unverified",

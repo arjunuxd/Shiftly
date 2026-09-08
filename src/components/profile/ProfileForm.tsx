@@ -4,17 +4,9 @@ import FormField, { FormError, SubmitButton, FriendlyAlert } from "../ui/FormFie
 import ConfirmDialog from "../ui/ConfirmDialog";
 import UnsavedChangesDialog from "../ui/UnsavedChangesDialog";
 import { useUnsavedChangesWarning } from "../../hooks/useUnsavedChangesWarning";
+import Avatar from "../ui/Avatar";
 import type { Profile } from "../../types";
 import { getFriendlyError } from "../../lib/errors";
-import {
-  uploadProfilePhoto,
-  deleteProfilePhoto,
-  uploadResume,
-  deleteResume,
-  uploadCertificate,
-  deleteCertificate,
-} from "../../lib/uploads";
-import { useAuth } from "../../context/useAuth";
 
 function isEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -145,15 +137,10 @@ export default function ProfileForm({
   onSubmit,
   onCancel,
 }: ProfileFormProps) {
-  const { currentUser } = useAuth();
   const [form, setForm] = useState(initialData);
   const [error, setError] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const [resumeUploading, setResumeUploading] = useState(false);
-  const [certUploadingId, setCertUploadingId] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<{
     title: string;
     message: string;
@@ -303,64 +290,6 @@ export default function ProfileForm({
     }));
   }
 
-  async function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !currentUser) return;
-    setPhotoUploading(true);
-    setError(null);
-    setUploadError(null);
-    try {
-      const url = await uploadProfilePhoto(currentUser.uid, file);
-      setForm((prev) => ({ ...prev, photoUrl: url }));
-    } catch (err: unknown) {
-      setUploadError(getFriendlyError(err, "We couldn't upload that photo. Please try again."));
-    } finally {
-      setPhotoUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  async function handlePhotoRemove() {
-    if (!currentUser) return;
-    setPhotoUploading(true);
-    try {
-      await deleteProfilePhoto(currentUser.uid);
-    } catch {
-      // ignore storage cleanup errors
-    }
-    setForm((prev) => ({ ...prev, photoUrl: null }));
-    setPhotoUploading(false);
-  }
-
-  async function handleResumeChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !currentUser) return;
-    setResumeUploading(true);
-    setError(null);
-    setUploadError(null);
-    try {
-      const { url, name } = await uploadResume(currentUser.uid, file);
-      setForm((prev) => ({ ...prev, resumeUrl: url, resumeName: name }));
-    } catch (err: unknown) {
-      setUploadError(getFriendlyError(err, "We couldn't upload that resume. Please try again."));
-    } finally {
-      setResumeUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  async function handleResumeRemove() {
-    if (!currentUser) return;
-    setResumeUploading(true);
-    try {
-      await deleteResume(currentUser.uid);
-    } catch {
-      // ignore storage cleanup errors
-    }
-    setForm((prev) => ({ ...prev, resumeUrl: null, resumeName: null }));
-    setResumeUploading(false);
-  }
-
   function addCertificate() {
     setForm((prev) => ({
       ...prev,
@@ -372,6 +301,7 @@ export default function ProfileForm({
           issuer: "",
           issueDate: "",
           expiryDate: "",
+          credentialId: "",
           credentialUrl: "",
         },
       ],
@@ -384,48 +314,6 @@ export default function ProfileForm({
       certificates: prev.certificates.map((c, i) =>
         i === index ? { ...c, [field]: value } : c,
       ),
-    }));
-  }
-
-  async function handleCertificateFile(
-    index: number,
-    e: ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = e.target.files?.[0];
-    const cert = form.certificates[index];
-    if (!file || !currentUser || !cert) return;
-    setCertUploadingId(cert.id);
-    setError(null);
-    setUploadError(null);
-    try {
-      const url = await uploadCertificate(currentUser.uid, cert.id, file);
-      setForm((prev) => ({
-        ...prev,
-        certificates: prev.certificates.map((c, i) =>
-          i === index ? { ...c, credentialUrl: url } : c,
-        ),
-      }));
-    } catch (err: unknown) {
-      setUploadError(getFriendlyError(err, "We couldn't upload that certificate. Please try again."));
-    } finally {
-      setCertUploadingId(null);
-      e.target.value = "";
-    }
-  }
-
-  async function handleCertificateRemove(index: number) {
-    const cert = form.certificates[index];
-    if (!cert) return;
-    if (currentUser && cert.credentialUrl) {
-      try {
-        await deleteCertificate(currentUser.uid, cert.id);
-      } catch {
-        // ignore storage cleanup errors
-      }
-    }
-    setForm((prev) => ({
-      ...prev,
-      certificates: prev.certificates.filter((_, i) => i !== index),
     }));
   }
 
@@ -527,60 +415,40 @@ export default function ProfileForm({
         </div>
       </details>
 
-      {/* Profile Photo */}
+      {/* Profile image */}
       <details className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm group">
         <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
-          title="Profile Photo"
-          description="A clear photo helps employers recognise you. JPEG, PNG, or WebP, max 500 KB."
+          title="Profile image"
+          description="Optional. Add a URL to an image hosted elsewhere (e.g. LinkedIn, Google Drive). If left blank we'll show your initials."
         />
         <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
         </summary>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-neutral-50">
-            {form.photoUrl ? (
-              <img
-                src={form.photoUrl}
-                alt="Profile"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-neutral-300 text-2xl font-bold">?</span>
-            )}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar
+              name={form.personalInfo.fullName}
+              src={form.photoUrl}
+              className="h-20 w-20"
+              textClassName="text-2xl"
+            />
+            <p className="text-sm text-neutral-500">
+              {form.photoUrl
+                ? "Your image URL is set. It will be displayed on your profile."
+                : "No image URL set yet — we'll show your initials instead."}
+            </p>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="inline-flex cursor-pointer items-center gap-2 self-start rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="sr-only"
-                onChange={(e) => void handlePhotoChange(e)}
-                disabled={photoUploading}
-              />
-              {photoUploading ? "Uploading..." : form.photoUrl ? "Change photo" : "Upload photo"}
-            </label>
-            {form.photoUrl && (
-              <button
-                type="button"
-                onClick={() =>
-                  requestRemove(
-                    "Remove profile photo?",
-                    "This removes your current profile photo.",
-                    () => void handlePhotoRemove(),
-                  )
-                }
-                className="self-start text-sm text-red-600 hover:text-red-700 transition-colors"
-              >
-                Remove photo
-              </button>
-            )}
-          </div>
+          <FormField
+            label="Profile image URL (optional)"
+            type="url"
+            value={form.photoUrl ?? ""}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setForm((prev) => ({ ...prev, photoUrl: e.target.value || null }))
+            }
+            placeholder="https://example.com/photo.jpg"
+            hint="Must be a valid http(s) URL."
+          />
         </div>
-        {uploadError && (
-          <p role="alert" className="mt-3 text-sm font-medium text-red-600">
-            {uploadError}
-          </p>
-        )}
       </details>
 
       {/* Resume */}
@@ -588,62 +456,39 @@ export default function ProfileForm({
         <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Resume"
-          description="PDF only, max 500 KB. Employers can view your resume when you apply."
+          description="Add a link to your resume (e.g. Google Drive or a hosted PDF). Employers can view it when you apply."
         />
         <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
         </summary>
         <div className="flex flex-col gap-2">
-          {form.resumeUrl ? (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="text-sm font-medium text-neutral-700">
-                {form.resumeName ?? "Resume uploaded"}
-              </span>
-              <div className="flex gap-3">
-                <a
-                  href={form.resumeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary-600 hover:text-primary-700"
-                >
-                  View resume
-                </a>
-                <button
-                  type="button"
-                  onClick={() =>
-                    requestRemove(
-                      "Remove resume?",
-                      "This removes your uploaded resume from your profile.",
-                      () => void handleResumeRemove(),
-                    )
-                  }
-                  className="text-sm text-red-600 hover:text-red-700"
-                  disabled={resumeUploading}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ) : (
-            <label className="inline-flex cursor-pointer self-start items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50">
-              <input
-                type="file"
-                accept="application/pdf"
-                className="sr-only"
-                onChange={(e) => void handleResumeChange(e)}
-                disabled={resumeUploading}
-              />
-              {resumeUploading ? "Uploading..." : "Upload resume"}
-            </label>
+          <FormField
+            label="Resume URL"
+            type="url"
+            value={form.resumeUrl ?? ""}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setForm((prev) => ({
+                ...prev,
+                resumeUrl: e.target.value || null,
+                resumeName: e.target.value ? prev.resumeName : null,
+              }))
+            }
+            placeholder="https://drive.google.com/..."
+            hint="A valid http(s) link to your resume."
+          />
+          {form.resumeUrl && (
+            <a
+              href={form.resumeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary-600 hover:text-primary-700"
+            >
+              View Resume ↗
+            </a>
           )}
           <p className="text-xs text-neutral-400">
             Your resume is only shown to employers after you apply for a job.
           </p>
         </div>
-        {uploadError && (
-          <p role="alert" className="mt-3 text-sm font-medium text-red-600">
-            {uploadError}
-          </p>
-        )}
       </details>
 
       {/* Certificates */}
@@ -651,7 +496,7 @@ export default function ProfileForm({
         <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <SectionHeading
           title="Certificates"
-          description="Add certifications relevant to the work you're looking for. Each can include a PDF file (max 500 KB)."
+          description="Add certifications relevant to the work you're looking for. Each can include a credential URL and ID for verification."
         />
         <svg className="h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
         </summary>
@@ -668,8 +513,14 @@ export default function ProfileForm({
                     "Remove certificate?",
                     `This removes "${
                       cert.name.trim() || "this certificate"
-                    }" and its uploaded file.`,
-                    () => void handleCertificateRemove(i),
+                    }" from your profile.`,
+                    () =>
+                      setForm((prev) => ({
+                        ...prev,
+                        certificates: prev.certificates.filter(
+                          (_, ci) => ci !== i,
+                        ),
+                      })),
                   )
                 }
                 className="absolute right-3 top-3 rounded p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
@@ -708,26 +559,20 @@ export default function ProfileForm({
                     onChange={(e: ChangeEvent<HTMLInputElement>) => updateCertificate(i, "expiryDate", e.target.value)}
                   />
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-50">
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      className="sr-only"
-                      onChange={(e) => void handleCertificateFile(i, e)}
-                      disabled={certUploadingId === cert.id}
-                    />
-                    {certUploadingId === cert.id
-                      ? "Uploading..."
-                      : cert.credentialUrl
-                        ? "Replace file"
-                        : "Upload PDF"}
-                  </label>
-                  {cert.credentialUrl && (
-                    <span className="text-xs text-accent-600 font-medium">
-                      PDF attached
-                    </span>
-                  )}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    label="Credential URL (optional)"
+                    type="url"
+                    value={cert.credentialUrl}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => updateCertificate(i, "credentialUrl", e.target.value)}
+                    placeholder="https://..."
+                  />
+                  <FormField
+                    label="Credential ID (optional)"
+                    value={cert.credentialId ?? ""}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => updateCertificate(i, "credentialId", e.target.value)}
+                    placeholder="e.g. FS-2024-12345"
+                  />
                 </div>
               </div>
             </div>
@@ -739,11 +584,6 @@ export default function ProfileForm({
           >
             + Add certificate
           </button>
-          {uploadError && (
-            <p role="alert" className="text-sm font-medium text-red-600">
-              {uploadError}
-            </p>
-          )}
         </div>
       </details>
 

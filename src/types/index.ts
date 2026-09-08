@@ -80,6 +80,7 @@ export interface ProfileCertificate {
   issuer: string;
   issueDate: string;
   expiryDate: string;
+  credentialId?: string;
   credentialUrl: string;
 }
 
@@ -116,14 +117,6 @@ export interface VerificationRecord {
   submittedAt: string | null;
   reviewedAt: string | null;
   rejectionReason: string | null;
-}
-
-export interface VerificationDocumentRecord {
-  documentUrl: string;
-  documentName: string;
-  documentMime: string;
-  documentSize: number;
-  updatedAt: string | null;
 }
 
 export const JOB_CATEGORIES = [
@@ -216,6 +209,8 @@ export interface JobLocation {
   country: string;
   address: string;
   area?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface Job {
@@ -227,6 +222,7 @@ export interface Job {
   workType: string;
   rateType: JobRateType;
   rateAmount: number;
+  requiredSkills?: string[];
   location: JobLocation;
   startDate: string;
   endDate: string;
@@ -280,6 +276,7 @@ export interface PublicJob {
   workType: string;
   rateType: JobRateType;
   rateAmount: number;
+  requiredSkills?: string[];
   location: JobLocation;
   startDate: string;
   endDate: string;
@@ -289,6 +286,27 @@ export interface PublicJob {
   status: JobStatus;
   publishedAt: string | null;
   vendorVerificationStatus: VendorVerificationStatus;
+  distanceKm?: number | null;
+}
+
+export interface MatchReason {
+  kind:
+    | "location"
+    | "availability"
+    | "category"
+    | "work-type"
+    | "skills"
+    | "pay";
+  text: string;
+}
+
+export interface RecommendedJob extends PublicJob {
+  matchScore: number;
+  matchesAvailability: boolean;
+  matchesSkills: number;
+  totalSkills: number;
+  distanceKm: number | null;
+  reasons: MatchReason[];
 }
 
 export interface JobDiscoveryMeta {
@@ -347,6 +365,11 @@ export interface VendorCandidateSummary {
   resumeUrl: string | null;
   resumeName: string | null;
   completeness: number;
+  repeatHire: boolean;
+  completedWithVendor: number;
+  averageRating: number | null;
+  ratingCount: number;
+  completedJobs: number;
 }
 
 export interface CandidateProfile {
@@ -364,6 +387,11 @@ export interface CandidateProfile {
   resumeName: string | null;
   portfolioLinks: ProfilePortfolioLink[];
   completeness: number;
+  averageRating: number | null;
+  ratingCount: number;
+  completedJobs: number;
+  repeatHire: boolean;
+  completedWithVendor: number;
 }
 
 // ─── Admin types (Phase 8) ──────────────────────────────────
@@ -486,7 +514,11 @@ export type NotificationType =
   | "APPLICATION_REJECTED"
   | "NEW_MESSAGE"
   | "VERIFICATION_APPROVED"
-  | "VERIFICATION_REJECTED";
+  | "VERIFICATION_REJECTED"
+  | "JOB_MATCHED"
+  | "JOB_HIRED"
+  | "JOB_COMPLETED"
+  | "REVIEW_RECEIVED";
 
 export interface AppNotification {
   id: string;
@@ -504,6 +536,7 @@ export interface AppNotification {
     conversationId?: string | null;
     verificationType?: string | null;
     reason?: string | null;
+    rating?: number | null;
   };
 }
 
@@ -512,4 +545,42 @@ export interface NotificationListResponse {
   unreadCount: number;
   nextPageToken: string | null;
   hasMore: boolean;
+}
+
+// ─── Saved Jobs (Phase 16) ────────────────────────────────────
+export interface SavedJobItem {
+  id: string;
+  jobId: string;
+  savedAt: string | null;
+  title?: string | null;
+  vendorName?: string | null;
+  rateType?: string | null;
+  rateAmount?: number | null;
+  city?: string | null;
+  state?: string | null;
+  status?: string | null;
+}
+
+export interface SavedJobsResponse {
+  saved: SavedJobItem[];
+}
+
+// ─── Job Alerts (Phase 16) ────────────────────────────────────
+export interface JobAlertPreferences {
+  userId: string;
+  enabled: boolean;
+  locationCity: string;
+  locationState: string;
+  jobCategories: string[];
+  workTypes: string[];
+  minRate: number | null;
+}
+
+// ─── Reputation (Phase 16) ────────────────────────────────────
+export interface ReputationSummary {
+  averageRating: number | null;
+  ratingCount: number;
+  completedJobs: number;
+  repeatHires: number;
+  verifiedState: string;
 }
